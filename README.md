@@ -63,6 +63,7 @@ The auction will not currently allow the sale contract address to be the same as
 You can view the sell and bid token information, the amount being sold, the minimum bid, the description if present, the auction contract address, and the status of the auction with
 ```sh
 secretcli q compute query *auction_contract_address* '{"auction_info":{}}'
+```
 There is a lot of info there, so it is best viewed piping it through jq
 ```sh
 secretcli q compute query *auction_contract_address* '{"auction_info":{}}'|jq
