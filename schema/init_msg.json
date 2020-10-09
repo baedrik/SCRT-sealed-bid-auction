@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InitMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "create_auction"
+      ],
+      "properties": {
+        "create_auction": {
+          "type": "object",
+          "required": [
+            "bid_contract",
+            "minimum_bid",
+            "sell_amount",
+            "sell_contract"
+          ],
+          "properties": {
+            "bid_contract": {
+              "$ref": "#/definitions/ContractInfo"
+            },
+            "description": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "minimum_bid": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "sell_amount": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "sell_contract": {
+              "$ref": "#/definitions/ContractInfo"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "ContractInfo": {
+      "type": "object",
+      "required": [
+        "address",
+        "code_hash"
+      ],
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        "code_hash": {
+          "type": "string"
+        }
+      }
+    },
+    "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
+      "type": "string"
+    }
+  }
+}
