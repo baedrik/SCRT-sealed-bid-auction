@@ -27,11 +27,11 @@ The next iteration of the auction will also include the ability to accept a Rece
 ## Running On Holodeck Testnet
 If you want to run sealed-bid auctions on Holodeck Testnet, I have stored a build of secret-secret that implements Send/Receive as described above. Its code ID is 84. You can create a new token with
 ```sh
-secretcli tx compute instantiate 84 '{"name": "*token\_name*","admin": "*address\_with\_admin\_privileges*", "symbol": "*token\_symbol*", "decimals": *decimal\_places*, "initial\_balances": \[{"address": "*address1*", "amount": "*amount\_for\_address1*"}\], "prng\_seed": "*string\_of\_hexadecimal\_digits*","config": {"public\_total\_supply": *true\_or\_false*}}' --from *your\_key\_alias\_or\_addr* --label *name\_for\_the\contract* -y
+secretcli tx compute instantiate 84 '{"name": "*token_name*","admin": "*address_with_admin_privileges*", "symbol": "*token_symbol*", "decimals": *decimal_places*, "initial_balances": [{"address": "*address1*", "amount": "*amount_for_address1*"}], "prng_seed": "*string_of_hexadecimal_digits*","config": {"public_total_supply": *true_or_false*}}' --from *your_key_alias_or_addr* --label *name_for_the_contract* -y
 ```
 You may include as many address/amount pairs as you like in the initial_balances field.
 
-You will want to create a token for sale as well as a token to bid in, because the auction will currently not allow the sale token and bid token to be the same (there is no reason to swap different amounts of the same fungible token).  When SNIP-721 is more fleshed out, this will probably be changed to allow for the exchanging of different NFT token IDs regardless of whether they are part of the same NFT contract or not.  Once you have created your test sale and bid tokens, you are ready to create an auction.  I have also stored this sealed-bid auction contract on holodeck testnet.  Its code ID is 89.
+You will want to create a token for sale as well as a token to bid in, because the auction will currently not allow the sale token and bid token to be the same (there is no reason to swap different amounts of the same fungible token).  When the SNIP-721 spec is more fleshed out, this will probably be changed to allow for the exchanging of different NFT token IDs regardless of whether they are part of the same NFT contract or not.  Once you have created your test sale and bid tokens, you are ready to create an auction.  I have also stored this sealed-bid auction contract on holodeck testnet.  Its code ID is 89.
 
 I have created a bash script file (named auction.sh) to make it easier to use the auction contract.  It requires that you have secretcli and jq installed.  
 You can install jq with
@@ -45,11 +45,11 @@ This script was primarily written as a quick-and-dirty helper for my own testing
 ## Creating a new auction
 You can create a new auction with
 ```sh
-secretcli tx compute instantiate 89 '{"create\_auction": {"sell\_contract": {"code\_hash": "*sale\_tokens\_code\_hash*", "address": "*sale\_tokens\_contract\_address*"}, "bid\_contract": {"code\_hash": "*bid\_tokens\_code\_hash*", "address": "*bid\_tokens\_contract\_address*"}, "sell\_amount": "*amount\_being\_sold\_in\_smallest\_denomination\_of\_sale\_token*", "minimum_bid": "*minimum\_accepted\_bid\_in\_smallest\_denomination\_of\_bid\_token*", "description": "*optional\_text\_description*"}}' --from *your\_key\_alias\_or\_addr* --label *name\_for\_the\_auction* --gas 300000 -y
+secretcli tx compute instantiate 89 '{"create_auction": {"sell_contract": {"code_hash": "*sale_tokens_code_hash*", "address": "*sale_tokens_contract_address*"}, "bid_contract": {"code_hash": "*bid_tokens_code_hash*", "address": "*bid_tokens_contract_address*"}, "sell_amount": "*amount_being_sold_in_smallest_denomination_of_sale_token*", "minimum_bid": "*minimum_accepted_bid_in_smallest_denomination_of_bid_token*", "description": "*optional_text_description*"}}' --from *your_key_alias_or_addr* --label *name_for_the_auction* --gas 300000 -y
 ```
 You can find a contract's code hash with
 ```sh
-secretcli q compute contract-hash *contract\_address*
+secretcli q compute contract-hash *contract_address*
 ```
 Copy it without the 0x prefix and surround it with quotes in the instantiate command.
 
@@ -57,15 +57,15 @@ The description field is optional.  It will accept a free-form text string (best
 
 The auction will not allow a sale amount of 0
 
-The auction will not currently allow the sale contract address to be the same as the bid contract address, because there is no reason to swap different amounts of the same fungible token.  When SNIP-721 is more fleshed out, this will probably be changed to allow for the exchanging of different NFT token IDs regardless of whether they are part of the same NFT contract or not.
+The auction will not currently allow the sale contract address to be the same as the bid contract address, because there is no reason to swap different amounts of the same fungible token.  When the SNIP-721 spec is more fleshed out, this will probably be changed to allow for the exchanging of different NFT token IDs regardless of whether they are part of the same NFT contract or not.
 
 ## Viewing the Auction Information
 You can view the sell and bid token information, the amount being sold, the minimum bid, the description if present, the auction contract address, and the status of the auction with
 ```sh
-secretcli q compute query *auction\_contract\_address* '{"auction_info":{}}'
+secretcli q compute query *auction_contract_address* '{"auction_info":{}}'
 There is a lot of info there, so it is best viewed piping it through jq
 ```sh
-secretcli q compute query *auction\_contract\_address* '{"auction_info":{}}'|jq
+secretcli q compute query *auction_contract_address* '{"auction_info":{}}'|jq
 ```
 Status will either be "Closed" if the auction is over, or it will be "Accepting bids".  If the auction is accepting bids, auction_info will also tell you if the auction owner has consigned the tokens to be sold to the auction.  You may want to wait until the owner consigns the tokens before you bid, but there is no risk in doing it earlier.  At any time before the auction closes, you can retract your bid to have your tokens returned to you.  But if you wait until the owner consigns his tokens, you can be more sure the owner is likely to finalize the auction, because once the tokens to be sold are consigned to the auction, he can not get his orignal tokens or the bid tokens until he finalizes the auction.  The original consigned tokens will only be returned if there are no active bids (either no bids were placed meeting the minimum asking price or all qualifying bids have been retracted).  Otherwise, the highest bid placed at the time of closure will be accepted and the swap will take place.
 
@@ -74,14 +74,14 @@ If the auction is closed, it will display if there are any outstanding funds sti
 ## Consigning Tokens To Be Sold
 To consign the tokens to be sold, the owner should Send the tokens to the contract address with
 ```sh
-secretcli tx compute execute *sale\_tokens\_contract\_address* '{"send": {"recipient": "*auction\_contract\_address*", "amount": "*amount\_being\_sold\_in\_smallest\_denomination\_of\_sell\_token*"}}' --from *your\_key\_alias\_or\_addr* --gas 500000 -y
+secretcli tx compute execute *sale_tokens_contract_address* '{"send": {"recipient": "*auction_contract_address*", "amount": "*amount_being_sold_in_smallest_denomination_of_sell_token*"}}' --from *your_key_alias_or_addr* --gas 500000 -y
 ```
-It will only accept consignment from the address that created the auction.  Any other address trying to consign tokens will have them immediately returned.  You can consign an amount smaller than the total amount to be sold, but the auction will not be displayed as fully consigned until you have sent the full amount.  You may consign the total amount in multiple Send transactions if desired, and any tokens you send in excess of the sale amount will be returned to you.  Once an auction has been closed, any tokens you send for consignment will be immediately returned, and the auction will remain closed.
+It will only accept consignment from the address that created the auction.  Any other address trying to consign tokens will have them immediately returned.  You can consign an amount smaller than the total amount to be sold, but the auction will not be displayed as fully consigned until you have sent the full amount.  You may consign the total amount in multiple Send transactions if desired, and any tokens you send in excess of the sale amount will be returned to you.  If the auction has been closed, any tokens you send for consignment will be immediately returned, and the auction will remain closed.
 
 ## Placing Bids
 To place a bid, the bidder should Send the tokens to the contract address with
 ```sh
-secretcli tx compute execute *bid\_tokens\_contract\_address* '{"send": {"recipient": "*auction\_contract\_address*", "amount": "*bid\_amount\_in\_smallest\_denomination\_of\_bidding\_token*"}}' --from *your\_key\_alias\_or\_addr* --gas 500000 -y
+secretcli tx compute execute *bid_tokens_contract_address* '{"send": {"recipient": "*auction_contract_address*", "amount": "*bid_amount_in_smallest_denomination_of_bidding_token*"}}' --from *your_key_alias_or_addr* --gas 500000 -y
 ```
 The tokens bid will be placed in escrow until the auction has concluded or you call retract\_bid to retract your bid and have all tokens returned.  You may retract your bid at any time before the auction ends. You may only have one active bid at a time.  If you place more than one bid, the smallest bid will be returned to you, because obviously that bid will lose to your new bid if they both stayed active.  If you bid the same amount as your previous bid, it will retain your original bid's timestamp, because, in the event of ties, the bid placed earlier is deemed the winner.  If you place a bid that is less than the minimum bid, those tokens will be immediately returned to you.  Also, if you place a bid after the auction has closed, those tokens will be immediately returned.
 
@@ -92,21 +92,21 @@ It is recommended that the UI designed to send a bid use the optional "padding" 
 ## View Your Active Bid
 You may view your current active bid amount and the time the bid was placed with
 ```sh
-secretcli tx compute execute *auction\_contract\_address* '{"view_bid": {}}' --from *your\_key\_alias\_or\_addr* --gas 200000 -y
+secretcli tx compute execute *auction_contract_address* '{"view_bid": {}}' --from *your_key_alias_or_addr* --gas 200000 -y
 ```
 You must use the same address that you did the Send transaction with to view the bid.
 
 ## Retract Your Active Bid
 You may retract your current active bid with
 ```sh
-secretcli tx compute execute *auction\_contract\_address* '{"retract_bid": {}}' --from *your\_key\_alias\_or\_addr* --gas 300000 -y
+secretcli tx compute execute *auction_contract_address* '{"retract_bid": {}}' --from *your_key_alias_or_addr* --gas 300000 -y
 ```
 You may retract your bid at any time before the auction closes to both retract your bid and to return your tokens.  In the unlikely event that your tokens were not returned automatically when the auction ended, you may call retract_bid after the auction closed to return them manually.
 
 ## Finalizing the Auction Sale
 The auction creator may close an auction with
 ```sh
-secretcli tx compute execute *auction\_contract\_address* '{"finalize": {"only\_if\_bids": *true\_or\_false*}}' --from *your\_key\_alias\_or\_addr* --gas 2000000 -y
+secretcli tx compute execute *auction_contract_address* '{"finalize": {"only_if_bids": *true_or_false*}}' --from *your_key_alias_or_addr* --gas 2000000 -y
 ```
 Only the auction creator can finalize an auction.  The boolean only\_if\_bids parameter is used to prevent the auction from closing if there are no active bids.  If there are no active bids, but only\_if\_bids was set to false, then the auction will be closed, and all consigned tokens will be returned to the auction creator. 
 If the auction is closed before the auction creator has consigned all the tokens for sale, any tokens consigned will be returned to the auction creator, and any active bids will be returned to the bidders.  If all the sale tokens have been consigned, and there is at least one active bid, the highest bid will be accepted (if tied, the tying bid placed earlier will be accepted).  The auction will then swap the tokens between the auction creator and the highest bidder, and return all the non-winning bids to their respective bidders.
@@ -114,6 +114,6 @@ If the auction is closed before the auction creator has consigned all the tokens
 ## Returning Funds In The Event Of Error
 In the unlikely event of some unforeseen error that results in funds being held by an auction after it has closed, anyone may run
 ```sh
-secretcli tx compute execute *auction\_contract\_address* '{"return_all": {}}' --from *your\_key\_alias\_or\_addr* --gas 2000000 -y
+secretcli tx compute execute *auction_contract_address* '{"return_all": {}}' --from *your_key_alias_or_addr* --gas 2000000 -y
 ```
 Return_all may only be called after an auction is closed.  Auction\_info will indicate whether any funds are still held by a closed auction.  Even if return\_all is not called, bidders who have not received their bids back can still call retract\_bid to have their bids returned.
