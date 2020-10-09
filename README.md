@@ -7,7 +7,9 @@ pub struct Snip20ReceiveMsg {
     pub from: HumanAddr,
     pub amount: Uint128,
     pub msg: Option<Binary>,
-}```
+}
+```
+
 where "sender" is the address that is sending the tokens, "from" is the owner of the tokens, "amount" is how many tokens were sent, and "msg" is optionally defined by the user and is just passed along from the original SendMsg.
 
 The bid/sell tokens should also follow the SNIP-20 format for TokenInfo queries.  Until that format is finalized, the following format is assumed (based on current secret-secret implementation):
@@ -17,7 +19,8 @@ pub struct TokenInfo {
     pub symbol: String,
     pub decimals: u8,
     pub total_supply: Option<Uint128>,
-}```
+}
+```
 
 The next iteration of the auction will also include the ability to accept a ReceiveNft call, so that it can be used with SNIP-721 non-fungible tokens.  The NFT version will likely include having optional TokenID fields when creating the auction, to specify that a specific NFT is up for sale.  The creator could also specify that only a specific NFT Token ID will be accepted as a bid.  This technically would no longer be an auction if only one Token ID will be accepted for a bid, but it would allow the ability to facilitate the trading of 1 specific NFT for another in a trustless manner.  It could also allow someone to essentially post an offer to buy a specific NFT for his asking price (of either a specific NFT or an amount of SNIP-20 tokens)
 
