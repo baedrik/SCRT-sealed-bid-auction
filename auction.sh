@@ -281,7 +281,6 @@ EOF
 
             echo "$resp" | grep "out of gas"
             sendtx=$(jq -r '.txhash' <<<"$resp")
-echo $sendtx
             decdsend=$(secretcli q compute tx $sendtx --trust-node=true -o json)
             decdsenderr=$(jq '.output_error' <<<"$decdsend")
             if [[ "$decdsenderr" == "{}" ]]
@@ -307,7 +306,6 @@ echo $sendtx
                    200000 --broadcast-mode block --trust-node=true -o json -y)
             echo "$resp" | grep "out of gas"
             tx=$(jq -r '.txhash' <<<"$resp")
-echo $tx
             decd=$(secretcli q compute tx $tx --trust-node=true -o json)
             bidresp=$(jq -r '.output_data_as_string' <<<"$decd")
             bidresp=${bidresp//\\"/"}
