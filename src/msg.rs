@@ -268,5 +268,5 @@ pub fn space_pad(block_size: usize, message: &mut Vec<u8>) -> &mut Vec<u8> {
 
 // pad_log_str -- pad a String with blanks so that it has length of block_size
 pub fn pad_log_str(block_size: usize, response: &mut String) {
-    response.push_str(&(" ".repeat(block_size - response.chars().count())));
+    response.push_str(&(" ".repeat(block_size - response.len())));
 }
