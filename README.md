@@ -95,7 +95,7 @@ You may view your current active bid amount and the time the bid was placed with
 ```sh
 secretcli tx compute execute *auction_contract_address* '{"view_bid": {}}' --from *your_key_alias_or_addr* --gas 200000 -y
 ```
-You must use the same address that you did the Send transaction with to view the bid.
+You must use the same address that you did the Send transaction with to view the bid.  Based on feedback, viewing keys could be implemented if users wanted to be able to see the bid through a query in addition to viewing through an execute.
 
 ## Retract Your Active Bid
 You may retract your current active bid with
