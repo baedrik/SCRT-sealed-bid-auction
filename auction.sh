@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Change this to the code ID of the auction contract for whatever chain your secretcli is using
-contractcode="92"
+contractcode="104"
 
 cat << EOF
 Just a reminder that you need to have secretcli and jq installed.
@@ -411,10 +411,9 @@ then
 #
 # change --gas amount below if getting out of gas error when creating a new auction
 #
-        resp=$(secretcli tx compute instantiate $contractcode "{\"create_auction\":\
-{\"sell_contract\":{\"code_hash\":\"$sellhash\",\"address\":\"$selladdr\"},\
-\"bid_contract\":{\"code_hash\":\"$bidhash\",\"address\":\"$bidaddr\"},\
-\"sell_amount\":\"$sellamount\",\"minimum_bid\":\"$minbid\"$descinp}}" --from $addr \
+        resp=$(secretcli tx compute instantiate $contractcode "{\"sell_contract\":{\"code_hash\":\
+\"$sellhash\",\"address\":\"$selladdr\"},\"bid_contract\":{\"code_hash\":\"$bidhash\",\"address\":\
+\"$bidaddr\"},\"sell_amount\":\"$sellamount\",\"minimum_bid\":\"$minbid\"$descinp}" --from $addr \
             --label "$auctionlabel" --gas 300000 --broadcast-mode block --trust-node=true \
             -o json -y 2>&1)
         if echo $resp | grep "label already exists"

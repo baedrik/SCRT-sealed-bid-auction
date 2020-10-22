@@ -14,7 +14,7 @@ use crate::msg::{
     ResponseStatus::{Failure, Success},
     Token, TokenQuery, TransferMsg,
 };
-use crate::state::{bids, bids_read, config, config_read, Bid, ContractInfo, State};
+use crate::state::{bids, bids_read, config, config_read, Bid, State};
 
 use chrono::NaiveDateTime;
 
@@ -23,51 +23,16 @@ use chrono::NaiveDateTime;
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 
 ////////////////////////////////////// Init ///////////////////////////////////////
+// initialize the auction and register receiving function with token contracts
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    match msg {
-        InitMsg::CreateAuction {
-            sell_contract,
-            bid_contract,
-            sell_amount,
-            minimum_bid,
-            description,
-            ..
-        } => try_init(
-            deps,
-            env,
-            sell_contract,
-            bid_contract,
-            sell_amount,
-            minimum_bid,
-            description,
-        ),
-    }
-}
-
-// try_init -- initialize the auction and register receiving function with token contracts
-//     sell_contract: Contractinfo -- sale token contract's code hash and address
-//     bid_contract: Contractinfo -- bidding token contract's code hash and address
-//     sell_amount: Uint128 -- amount of tokens up for sale
-//     minimum_bid: Uint128 -- smallest bid accepted
-//     description: Option<String> -- optional description of the auction
-// return value: StdResult<InitResponse>
-fn try_init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    sell_contract: ContractInfo,
-    bid_contract: ContractInfo,
-    sell_amount: Uint128,
-    minimum_bid: Uint128,
-    description: Option<String>,
-) -> StdResult<InitResponse> {
-    if sell_amount == Uint128(0) {
+    if msg.sell_amount == Uint128(0) {
         return Err(StdError::generic_err("Sell amount must be greater than 0"));
     }
-    if sell_contract.address == bid_contract.address {
+    if msg.sell_contract.address == msg.bid_contract.address {
         return Err(StdError::generic_err(
             "Sell contract and bid contract must be different",
         ));
@@ -75,15 +40,15 @@ fn try_init<S: Storage, A: Api, Q: Querier>(
     let state = State {
         auction_addr: env.contract.address.clone(),
         seller: env.message.sender,
-        sell_contract: sell_contract.clone(),
-        bid_contract: bid_contract.clone(),
-        sell_amount,
-        minimum_bid,
+        sell_contract: msg.sell_contract.clone(),
+        bid_contract: msg.bid_contract.clone(),
+        sell_amount: msg.sell_amount,
+        minimum_bid: msg.minimum_bid,
         currently_consigned: Uint128(0),
         bidders: HashSet::new(),
         is_completed: false,
         tokens_consigned: false,
-        description,
+        description: msg.description,
     };
 
     config(&mut deps.storage).save(&state)?;
@@ -96,9 +61,11 @@ fn try_init<S: Storage, A: Api, Q: Querier>(
     cosmsg.push(
         register_rec_msg
             .clone()
-            .into_cosmos_msg(sell_contract.code_hash, sell_contract.address)?,
+            .into_cosmos_msg(msg.sell_contract.code_hash, msg.sell_contract.address)?,
     );
-    cosmsg.push(register_rec_msg.into_cosmos_msg(bid_contract.code_hash, bid_contract.address)?);
+    cosmsg.push(
+        register_rec_msg.into_cosmos_msg(msg.bid_contract.code_hash, msg.bid_contract.address)?,
+    );
 
     Ok(InitResponse {
         messages: cosmsg,

@@ -14,16 +14,13 @@ use cosmwasm_std::{to_binary, Binary, CosmosMsg, HumanAddr, StdResult, Uint128, 
 //                            As an example it could be the date the owner will likely finalize the
 //                            auction, or a list of other auctions for the same token, etc...
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum InitMsg {
-    CreateAuction {
-        sell_contract: ContractInfo,
-        bid_contract: ContractInfo,
-        sell_amount: Uint128,
-        minimum_bid: Uint128,
-        #[serde(default)]
-        description: Option<String>,
-    },
+pub struct InitMsg {
+    pub sell_contract: ContractInfo,
+    pub bid_contract: ContractInfo,
+    pub sell_amount: Uint128,
+    pub minimum_bid: Uint128,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -180,7 +177,7 @@ pub struct TransferMsg {
 
 impl TransferMsg {
     pub fn new(recipient: HumanAddr, amount: Uint128) -> Self {
-        let padding = Some(" ".repeat(40 - amount.to_string().chars().count()));
+        let padding = Some(" ".repeat(40 - amount.to_string().len()));
         Self {
             recipient,
             amount,
