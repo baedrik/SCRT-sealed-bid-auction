@@ -118,3 +118,8 @@ In the unlikely event of some unforeseen error that results in funds being held 
 secretcli tx compute execute *auction_contract_address* '{"return_all": {}}' --from *your_key_alias_or_addr* --gas 2000000 -y
 ```
 Return_all may only be called after an auction is closed.  Auction\_info will indicate whether any funds are still held by a closed auction.  Even if return\_all is not called, bidders who have not received their bids back can still call retract\_bid to have their bids returned.
+
+## Notes for UI builders
+It is recommended that the UI designed to send a bid use the optional "padding" field when calling the bid token contract's Send function.  You will want the number of digits of the send amount + the number of characters in the padding field to be a constant number (I use 40 characters, because the maximum number of digits of Uint128 is 39, and I always want at least one blank in padding).  That way the size of the Send does not leak information about the size of the bid.
+
+Also, you should be aware that responses from bidding and consigning (functions that are called indirectly when doing a Send tx with a token contract) are sent in the log attributes.  This is because when one contract calls another contract, only logs (not the data field) are forwarded back to the user.  On the other hand, any time you call the auction contract directly, the response will be sent in the data field, which is the preferred method of returning json responses.
