@@ -395,7 +395,7 @@ enum RegisterHandleMsg {
     RegisterReceive(RegisterMsg),
 }
 ```
-This code is used to call the `RegisterReceive` function of a SNIP-20 compliant token.  When a SNIP-20 compliant token contract executes a Send or SendFrom message, if the recipient address is the address of a contract that has registered with the SNIP-20 token contract, it will call the Recieve function of the recipient contract.  The code above can be copied as is, if your contract wants to be called whenever it receives tokens from a Send or SendFrom message.  You can pad this message to a specified block size in the same way described above for the transfer message.  Please see the `init` function in contract.rs for an example on how to perform a RegisterReceive callback message.
+This code is used to call the `RegisterReceive` function of a SNIP-20 compliant token.  When a SNIP-20 compliant token contract executes a Send or SendFrom message, if the recipient address is the address of a contract that has registered with the SNIP-20 token contract, it will call the Recieve function of the recipient contract.  The code above can be copied as is, if your contract wants to be called whenever it receives tokens from a Send or SendFrom message.  You can also pad this message to a specified block size in the same way described above for the transfer message, if needed.  Please see the `init` function in contract.rs for an example on how to perform a RegisterReceive callback message.
 ```sh
 // space_pad -- pad a Vec<u8> with blanks at the end to length of multiples of block_size
 pub fn space_pad(block_size: usize, message: &mut Vec<u8>) -> &mut Vec<u8> {
@@ -484,7 +484,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::ViewBid { .. } => try_view_bid(deps, &env.message.sender),
     };
 ```
-Your contract will have a `handle` function.  You will change the `match` message to handle each HandleMsg enum you defined in msg.rs.  `env.message.sender` is the address of who sent this execute message.  If called directly by a user, it will be the "--from" address, and if called by a token contract after a Send or SendFrom message, it will be the contract address of that token.
+Your contract will have a `handle` function.  You will change the `match` message to handle each HandleMsg enum you defined in msg.rs.  This is how you direct each HandleMsg to the appropriate function.  `env.message.sender` is the address of who sent this execute message.  If called directly by a user, it will be the "--from" address, and if called by a token contract after a Send or SendFrom message, it will be the contract address of that token.
 ```sh
     response.map(|mut response| {
         response.data = response.data.map(|mut data| {
@@ -591,7 +591,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, msg: QueryM
     }
 }
 ```
-Your contract will have a `query` function.  You will change the `match` message to handle each QueryMsg enum you defined in msg.rs<br/>
+Your contract will have a `query` function.  You will change the `match` message to handle each QueryMsg enum you defined in msg.rs.  This is how you direct each QueryMsg to the appropriate function.<br/>
 <br/>
 The `try_query_info` function is used for the following examples:
 ```sh
