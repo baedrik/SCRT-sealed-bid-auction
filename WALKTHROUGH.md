@@ -630,4 +630,4 @@ This code shows how to query another contract.  In this case, it is calling the 
         status,
     })
 ```
-Because QueryResponse if just a Binary, all you need to do to create the QueryResponse is create an instance of your QueryAnswer enum and pass it to `to_binary` which will serialize it to a JSON string and then convert that to a Binary.
+Because QueryResponse is just a Binary, all you need to do to create the QueryResponse is create an instance of your QueryAnswer enum and pass it to `to_binary` which will serialize it to a JSON string and then convert that to a Binary.
