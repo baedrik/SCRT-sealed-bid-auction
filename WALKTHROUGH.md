@@ -70,7 +70,7 @@ pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
     singleton_read(storage, CONFIG_KEY)
 }
 ```
-This defines the functions to access Singleton storage.  Singleton storage is used for any data that has one occurence for the entire contract (such as the contract's global state).  It should be noted that you can have multiple Singletons, each with a different KEY, but each KEY will have exactly one set of data associated with it.
+This defines the functions to access Singleton storage.  Singleton storage is used for any data that has one occurence for the entire contract (such as the contract's global state).  Each Singleton is given a KEY and is associated with a specified type (in this case the State struct).  It should be noted that you can have multiple Singletons, each with a different KEY, but each KEY will have exactly one set of data associated with it.
 ```sh
 // Bid data:
 // amount: amount of tokens bid
@@ -430,9 +430,23 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 ```
 Your contract will have an `init` function that will be called whenever it is instantiated.  You can access the input parameters as fields of the msg parameter of the type `InitMsg` that you defined in msg.rs.  You can leave this code as is.
 ```sh
+    let state = State {
+        auction_addr: env.contract.address.clone(),
+        seller: env.message.sender,
+        sell_contract: msg.sell_contract.clone(),
+        bid_contract: msg.bid_contract.clone(),
+        sell_amount: msg.sell_amount,
+        minimum_bid: msg.minimum_bid,
+        currently_consigned: Uint128(0),
+        bidders: HashSet::new(),
+        is_completed: false,
+        tokens_consigned: false,
+        description: msg.description,
+    };
+
     config(&mut deps.storage).save(&state)?;
 ```
-This is an example of how to save Singleton data using the `config` function defined in state.rs
+This is an example of how to save Singleton data using the `config` function defined in state.rs.  First it creates the a new variable of State type.  `env.message.sender` is the address that signed the instantiate message (specified with the "--from" flag).  Then it saves the new `state` variable.
 ```sh
     // register receive functions with the bid/sell token contracts
     let register_rec_msg = RegisterMsg {
@@ -482,6 +496,7 @@ Your contract will have a `handle` function.  You will change the `match` messag
 }
 ```
 This is used to pad all HandleResponse data fields to a specified block size.  A `pad_handle_result` function has since been added to https://github.com/enigmampc/secret-toolkit which you can use instead of this code.<br/>
+<br/>
 The `try_view_bid` function is used for the following examples:
 ```sh
     let state = config_read(&deps.storage).load()?;
@@ -491,7 +506,7 @@ demonstrates how to load the State data from Singleton storage as defined in sta
     let bidder_raw = &deps.api.canonical_address(&bidder.clone())?;
     let bidstore = bids_read(&deps.storage);
 ```
-The first line demonstrates how to convert a HumanAddr into a CanonicalAddr, which is what the auction contract uses as the key to store bids.  It should be noted that https://github.com/enigmampc/SecretNetwork/blob/master/docs/dev/developing-secret-contracts.md states that it is better to use `bech32` instead of `deps.api.canonical_address` because `deps.api.canonical_address` only supports addresses with a "secret" prefix, not "secretvaloper" addresses.<br/>
+The first line demonstrates how to convert a HumanAddr into a CanonicalAddr, which is what the auction contract uses as the key to store bids.  It should be noted that https://github.com/enigmampc/SecretNetwork/blob/master/docs/dev/developing-secret-contracts.md states that it is better to use `bech32` instead of `deps.api.canonical_address` because `deps.api.canonical_address` only supports addresses with a "secret" prefix, not "secretvaloper" addresses.  In this case, only "secret" addresses will be placing bids, so the contract was not updated later to use `bech32`<br/>
 The second line sets access to the Bid Bucket storage as defined in state.rs
 ```sh
         let bid = bidstore.may_load(bidder_raw.as_slice())?;
@@ -511,6 +526,7 @@ This line attempts to read the data stored with the `bidder_raw` key in the `bid
     })
 ```
 This is an example of returning the appropriate HandleResponse after execution.  In this case, because it was not necessary to call another contract, the `messages` Vec is empty, and the `log` Vec is empty because we are passing the results in the `data` field.  Here we see an instance of `HandleAnswer::Bid` (defined in msg.rs) being created and passed to `to_binary`.  `to_binary` serializes the `HandleAnswer::Bid` into a JSON string and then converts it into a Binary.  Because the `data` field is defined as `Option<Binary>`, you then need to wrap it with `Some`.<br/>
+<br/>
 The `try_bid` function is used for the following examples:
 ```sh
     let new_bid = Bid {
@@ -576,6 +592,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, msg: QueryM
 }
 ```
 Your contract will have a `query` function.  You will change the `match` message to handle each QueryMsg enum you defined in msg.rs<br/>
+<br/>
 The `try_query_info` function is used for the following examples:
 ```sh
     let queryreq = Binary(Vec::from("{\"token_info\":{}}"));
