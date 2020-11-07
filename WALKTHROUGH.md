@@ -158,7 +158,7 @@ Your contract will define a `HandleMsg` enum to describe all the execute message
         msg: Option<Binary>,
     },
 ```
-If your contract will be called by either secretSCRT or a SNIP-20 compliant token contract, you will keep the `HandleMsg::Receive` enum as is.
+If your contract will be called by either secretSCRT or a SNIP-20 compliant token contract when it is Sent tokens, you will keep the `HandleMsg::Receive` enum as is.
 ```sh
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
