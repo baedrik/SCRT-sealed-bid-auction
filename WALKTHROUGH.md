@@ -37,7 +37,7 @@ pub struct ContractInfo {
 // sell_amount: Uint128 -- amount being sold
 // minimum_bid: Uint128 -- minimum bid that will be accepted
 // currently_consigned: Uint128 -- amount of sell tokens consigned so far
-// bidders: HashSet<Vec<u8>> -- list of addresses with active bids, can\'t use CanonicalAddr,
+// bidders: HashSet<Vec<u8>> -- list of addresses with active bids, can not use CanonicalAddr,
 //                              because it does not implement Eq or Hash
 // is_completed: true if the auction is over
 // tokens_consigned: true if seller has consigned the tokens for sale to the auction contract
