@@ -1,6 +1,8 @@
 # Sealed Bid Auction
 
-This is a contract that implements a sealed bid auction where the bid and sold tokens are SNIP-20 compliant.  Technically they don't have to be fully compliant.  They just need to follow SNIP-20 specs for the Send function (as well as the RegisterReceive function, which is needed to set up the Send/Receive functionality).  As the SNIP-20 spec has not been finalized, the below format is used at the present time for testing, and will be updated if the final SNIP-20 spec differs.  This testing implementation requires that Send should callback a Receive function with the following msg format:
+Be sure to read the WALKTHROUGH.md if you are using this contract as a template to build your own secret contract...
+
+This is a contract that implements a sealed bid auction where the bid and sold tokens are SNIP-20 compliant.  Technically they don't have to be fully compliant.  They just need to follow SNIP-20 specs for the Send function (as well as the RegisterReceive function, which is needed to set up the Send/Receive functionality).  SNIP-20 spec requires that Send should callback a Receive function with the following msg format:
 ```sh
 pub struct Snip20ReceiveMsg {
     pub sender: HumanAddr,
@@ -12,7 +14,7 @@ pub struct Snip20ReceiveMsg {
 
 where "sender" is the address that is sending the tokens, "from" is the owner of the tokens, "amount" is how many tokens were sent, and "msg" is optionally defined by the user and is just passed along from the original SendMsg.
 
-The bid/sell tokens should also follow the SNIP-20 format for TokenInfo queries.  Until that format is finalized, the following format is assumed (based on current secret-secret implementation):
+The bid/sell tokens should also follow the SNIP-20 format for TokenInfo queries.  Until that format is finalized, the following format is assumed (based on current secretSCRT implementation):
 ```sh
 pub struct TokenInfo {
     pub name: String,
