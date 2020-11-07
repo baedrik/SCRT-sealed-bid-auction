@@ -484,7 +484,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::ViewBid { .. } => try_view_bid(deps, &env.message.sender),
     };
 ```
-Your contract will have a `handle` function.  You will change the `match` message to handle each HandleMsg enum you defined in msg.rs.  This is how you direct each HandleMsg to the appropriate function.  `env.message.sender` is the address of who sent this execute message.  If called directly by a user, it will be the "--from" address, and if called by a token contract after a Send or SendFrom message, it will be the contract address of that token.
+Your contract will have a `handle` function.  It will be called whenever a "tx compute execute" command is performed.  You will change the `match` message to handle each HandleMsg enum you defined in msg.rs.  This is how you direct each HandleMsg to the appropriate function.  `env.message.sender` is the address of who sent this execute message.  If called directly by a user, it will be the "--from" address, and if called by a token contract after a Send or SendFrom message, it will be the contract address of that token.
 ```sh
     response.map(|mut response| {
         response.data = response.data.map(|mut data| {
@@ -591,7 +591,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, msg: QueryM
     }
 }
 ```
-Your contract will have a `query` function.  You will change the `match` message to handle each QueryMsg enum you defined in msg.rs.  This is how you direct each QueryMsg to the appropriate function.<br/>
+Your contract will have a `query` function.  It will be called whenever a "query compute query" command is performed.  You will change the `match` message to handle each QueryMsg enum you defined in msg.rs.  This is how you direct each QueryMsg to the appropriate function.<br/>
 <br/>
 The `try_query_info` function is used for the following examples:
 ```sh
