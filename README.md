@@ -26,28 +26,28 @@ pub struct TokenInfo {
 
 The next iteration of the auction will also include the ability to accept a ReceiveNft call, so that it can be used with SNIP-721 non-fungible tokens.  The NFT version will likely include having optional TokenID fields when creating the auction, to specify that a specific NFT is up for sale.  The creator could also specify that only a specific NFT Token ID will be accepted as a bid.  This technically would no longer be an auction if only one Token ID will be accepted for a bid, but it would allow the ability to facilitate the trading of 1 specific NFT for another in a trustless manner.  It could also allow someone to essentially post an offer to buy a specific NFT for his asking price (of either a specific NFT or an amount of SNIP-20 tokens)
 
-## Running On Holodeck Testnet
-If you want to run sealed-bid auctions on Holodeck Testnet, I have stored a build of secret-secret that implements Send/Receive as described above. Its code ID is 84. You can create a new token with
+## Running On Holodeck-2 Testnet
+If you want to run sealed-bid auctions on Holodeck-2 Testnet, I have stored the snip20-reference-impl. Its code ID is 1. You can create a new token with
 ```sh
-secretcli tx compute instantiate 84 '{"name": "*token_name*","admin": "*address_with_admin_privileges*", "symbol": "*token_symbol*", "decimals": *decimal_places*, "initial_balances": [{"address": "*address1*", "amount": "*amount_for_address1*"}], "prng_seed": "*string_of_hexadecimal_digits*","config": {"public_total_supply": *true_or_false*}}' --from *your_key_alias_or_addr* --label *name_for_the_contract* -y
+secretcli tx compute instantiate 1 '{"name": "*token_name*","admin": "*address_with_admin_privileges*", "symbol": "*token_symbol*", "decimals": *decimal_places*, "initial_balances": [{"address": "*address1*", "amount": "*amount_for_address1*"}], "prng_seed": "*base64_encoded_string*","config": {"public_total_supply": *true_or_false*}}' --from *your_key_alias_or_addr* --label *name_for_the_contract* -y
 ```
 You may include as many address/amount pairs as you like in the initial_balances field.
 
-You will want to create a token for sale as well as a token to bid in, because the auction will currently not allow the sale token and bid token to be the same (there is no reason to swap different amounts of the same fungible token).  When the SNIP-721 spec is more fleshed out, this will probably be changed to allow for the exchanging of different NFT token IDs regardless of whether they are part of the same NFT contract or not.  Once you have created your test sale and bid tokens, you are ready to create an auction.  I have also stored this sealed-bid auction contract on holodeck testnet.  Its code ID is 104.
+You will want to create a token for sale as well as a token to bid in, because the auction will currently not allow the sale token and bid token to be the same (there is no reason to swap different amounts of the same fungible token).  When the SNIP-721 spec is more fleshed out, this will probably be changed to allow for the exchanging of different NFT token IDs regardless of whether they are part of the same NFT contract or not.  Once you have created your test sale and bid tokens, you are ready to create an auction.  I have also stored this sealed-bid auction contract on Holodeck-2 testnet.  Its code ID is 2.
 
 I have created a bash script file (named auction.sh) to make it easier to use the auction contract.  It requires that you have secretcli and jq installed.  
 You can install jq with
 ```sh
 sudo apt-get install jq
 ```
-The script is expecting the auction contract to have code ID 104, but you can change that on the first line if you store a new version of the contract.  
+The script is expecting the auction contract to have code ID 2, but you can change that on the first line if you store a new version of the contract.  
 
 This script was primarily written as a quick-and-dirty helper for my own testing purposes. If you intend to create a production UI for the contract, when placing a bid, you should follow the example of the script and use the optional padding field when calling a token contract's Send.  You will want the number of digits of the send amount + the number of characters in the padding field to be a constant number (I use 40 characters, because the maximum number of digits of Uint128 is 39, and I always want at least one blank in padding).  This way you do not leak information about the number of digits of the bid.  You do not have to do this for consign, because the consignment amount is public (it is the amount of tokens for sale in the auction), but it will not cause any problems if you also pad the consignment call to Send if the same function is used to Send the tokens for both placing bids, and consigning tokens.
 
 ## Creating a new auction
 You can create a new auction with
 ```sh
-secretcli tx compute instantiate 104 '{"sell_contract": {"code_hash": "*sale_tokens_code_hash*", "address": "*sale_tokens_contract_address*"}, "bid_contract": {"code_hash": "*bid_tokens_code_hash*", "address": "*bid_tokens_contract_address*"}, "sell_amount": "*amount_being_sold_in_smallest_denomination_of_sale_token*", "minimum_bid": "*minimum_accepted_bid_in_smallest_denomination_of_bid_token*", "description": "*optional_text_description*"}' --from *your_key_alias_or_addr* --label *name_for_the_auction* --gas 300000 -y
+secretcli tx compute instantiate 2 '{"sell_contract": {"code_hash": "*sale_tokens_code_hash*", "address": "*sale_tokens_contract_address*"}, "bid_contract": {"code_hash": "*bid_tokens_code_hash*", "address": "*bid_tokens_contract_address*"}, "sell_amount": "*amount_being_sold_in_smallest_denomination_of_sale_token*", "minimum_bid": "*minimum_accepted_bid_in_smallest_denomination_of_bid_token*", "description": "*optional_text_description*"}' --from *your_key_alias_or_addr* --label *name_for_the_auction* --gas 300000 -y
 ```
 You can find a contract's code hash with
 ```sh

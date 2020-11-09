@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Change this to the code ID of the auction contract for whatever chain your secretcli is using
-contractcode="104"
+contractcode="2"
 
 cat << EOF
 Just a reminder that you need to have secretcli and jq installed.
