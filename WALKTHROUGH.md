@@ -1,3 +1,13 @@
+# Project Structure
+The source directory (src/) has these files:
+
+contract.rs  lib.rs  msg.rs  state.rs
+The contract.rs file contains contract logic, contract entry points are init, handle and query functions.
+The state.rs file defines the State struct, used for storing the contract data, the only information persisted between multiple contract calls.
+The msg.rs file is where the InitMsg parameters are specified (like a constructor), the types of Query (GetCount) and Handle[r] (Increment) messages, and any custom structs for each query response.
+The lib.rs file xx?
+
+
 # lib.rs
 ```sh
 pub mod contract;
