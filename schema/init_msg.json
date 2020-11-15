@@ -1,6 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "InitMsg",
+  "description": "Instantiation message",
   "type": "object",
   "required": [
     "bid_contract",
@@ -10,9 +11,15 @@
   ],
   "properties": {
     "bid_contract": {
-      "$ref": "#/definitions/ContractInfo"
+      "description": "bid contract code hash and address",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ContractInfo"
+        }
+      ]
     },
     "description": {
+      "description": "Optional free-form description of the auction (best to avoid double quotes). As an example it could be the date the owner will likely finalize the auction, or a list of other auctions for the same token, etc...",
       "default": null,
       "type": [
         "string",
@@ -20,17 +27,33 @@
       ]
     },
     "minimum_bid": {
-      "$ref": "#/definitions/Uint128"
+      "description": "minimum bid that will be accepted",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        }
+      ]
     },
     "sell_amount": {
-      "$ref": "#/definitions/Uint128"
+      "description": "amount of tokens being sold",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        }
+      ]
     },
     "sell_contract": {
-      "$ref": "#/definitions/ContractInfo"
+      "description": "sell contract code hash and address",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ContractInfo"
+        }
+      ]
     }
   },
   "definitions": {
     "ContractInfo": {
+      "description": "code hash and address of a contract",
       "type": "object",
       "required": [
         "address",
@@ -38,9 +61,15 @@
       ],
       "properties": {
         "address": {
-          "$ref": "#/definitions/HumanAddr"
+          "description": "contract's address",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          ]
         },
         "code_hash": {
+          "description": "contract's code hash string",
           "type": "string"
         }
       }

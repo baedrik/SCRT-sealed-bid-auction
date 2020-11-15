@@ -440,7 +440,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?branch=add-snip20-calls#2042950286053c250ddc66769bf76c62bcaf5000"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=2042950#2042950286053c250ddc66769bf76c62bcaf5000"
 dependencies = [
  "secret-toolkit-crypto",
  "secret-toolkit-serialization",
@@ -452,7 +452,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-crypto"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?branch=add-snip20-calls#2042950286053c250ddc66769bf76c62bcaf5000"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=2042950#2042950286053c250ddc66769bf76c62bcaf5000"
 dependencies = [
  "cosmwasm-std",
  "libsecp256k1",
@@ -464,7 +464,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-serialization"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?branch=add-snip20-calls#2042950286053c250ddc66769bf76c62bcaf5000"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=2042950#2042950286053c250ddc66769bf76c62bcaf5000"
 dependencies = [
  "bincode2",
  "cosmwasm-std",
@@ -474,7 +474,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-snip20"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?branch=add-snip20-calls#2042950286053c250ddc66769bf76c62bcaf5000"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=2042950#2042950286053c250ddc66769bf76c62bcaf5000"
 dependencies = [
  "cosmwasm-std",
  "schemars",
@@ -485,7 +485,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-storage"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?branch=add-snip20-calls#2042950286053c250ddc66769bf76c62bcaf5000"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=2042950#2042950286053c250ddc66769bf76c62bcaf5000"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -496,7 +496,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-utils"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?branch=add-snip20-calls#2042950286053c250ddc66769bf76c62bcaf5000"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=2042950#2042950286053c250ddc66769bf76c62bcaf5000"
 dependencies = [
  "cosmwasm-std",
  "schemars",

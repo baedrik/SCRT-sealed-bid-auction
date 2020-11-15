@@ -1,8 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "HandleAnswer",
+  "description": "Responses from handle functions",
   "anyOf": [
     {
+      "description": "response from consign attempt",
       "type": "object",
       "required": [
         "consign"
@@ -16,6 +18,7 @@
           ],
           "properties": {
             "amount_consigned": {
+              "description": "Optional amount consigned",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -26,6 +29,7 @@
               ]
             },
             "amount_needed": {
+              "description": "Optional amount that still needs to be consigned",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -36,6 +40,7 @@
               ]
             },
             "amount_returned": {
+              "description": "Optional amount of tokens returned from escrow",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -46,16 +51,23 @@
               ]
             },
             "message": {
+              "description": "execution description",
               "type": "string"
             },
             "status": {
-              "$ref": "#/definitions/ResponseStatus"
+              "description": "success or failure",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ResponseStatus"
+                }
+              ]
             }
           }
         }
       }
     },
     {
+      "description": "response from bid attempt",
       "type": "object",
       "required": [
         "bid"
@@ -69,6 +81,7 @@
           ],
           "properties": {
             "amount_bid": {
+              "description": "Optional amount bid",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -79,6 +92,7 @@
               ]
             },
             "amount_returned": {
+              "description": "Optional amount of tokens returned from escrow",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -89,9 +103,11 @@
               ]
             },
             "message": {
+              "description": "execution description",
               "type": "string"
             },
             "previous_bid": {
+              "description": "Optional amount of previous bid returned from escrow",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -102,13 +118,19 @@
               ]
             },
             "status": {
-              "$ref": "#/definitions/ResponseStatus"
+              "description": "success or failure",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ResponseStatus"
+                }
+              ]
             }
           }
         }
       }
     },
     {
+      "description": "response from closing the auction",
       "type": "object",
       "required": [
         "close_auction"
@@ -122,6 +144,7 @@
           ],
           "properties": {
             "amount_returned": {
+              "description": "Optional amount of tokens returned form escrow",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -132,12 +155,19 @@
               ]
             },
             "message": {
+              "description": "execution description",
               "type": "string"
             },
             "status": {
-              "$ref": "#/definitions/ResponseStatus"
+              "description": "success or failure",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ResponseStatus"
+                }
+              ]
             },
             "winning_bid": {
+              "description": "Optional amount of winning bid",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -152,6 +182,7 @@
       }
     },
     {
+      "description": "response from attempt to retract bid",
       "type": "object",
       "required": [
         "retract_bid"
@@ -165,6 +196,7 @@
           ],
           "properties": {
             "amount_returned": {
+              "description": "Optional amount of tokens returned from escrow",
               "anyOf": [
                 {
                   "$ref": "#/definitions/Uint128"
@@ -175,16 +207,23 @@
               ]
             },
             "message": {
+              "description": "execution description",
               "type": "string"
             },
             "status": {
-              "$ref": "#/definitions/ResponseStatus"
+              "description": "success or failure",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ResponseStatus"
+                }
+              ]
             }
           }
         }
       }
     },
     {
+      "description": "generic status response",
       "type": "object",
       "required": [
         "status"
@@ -198,10 +237,16 @@
           ],
           "properties": {
             "message": {
+              "description": "execution description",
               "type": "string"
             },
             "status": {
-              "$ref": "#/definitions/ResponseStatus"
+              "description": "success or failure",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ResponseStatus"
+                }
+              ]
             }
           }
         }
@@ -210,10 +255,11 @@
   ],
   "definitions": {
     "ResponseStatus": {
+      "description": "success or failure response",
       "type": "string",
       "enum": [
-        "success",
-        "failure"
+        "Success",
+        "Failure"
       ]
     },
     "Uint128": {

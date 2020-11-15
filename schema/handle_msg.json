@@ -1,8 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "HandleMsg",
+  "description": "Handle messages",
   "anyOf": [
     {
+      "description": "Receive gets called by the token contracts of the auction.  If it came from the sale token, it will consign the sent tokens.  If it came from the bid token, it will place a bid.  If any other address tries to call this, it will give an error message that the calling address is not a token in the auction.",
       "type": "object",
       "required": [
         "receive"
@@ -17,12 +19,23 @@
           ],
           "properties": {
             "amount": {
-              "$ref": "#/definitions/Uint128"
+              "description": "amount of tokens sent",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                }
+              ]
             },
             "from": {
-              "$ref": "#/definitions/HumanAddr"
+              "description": "address of the owner of the tokens sent to the auction",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              ]
             },
             "msg": {
+              "description": "Optional base64 encoded message sent with the Send call -- not needed or used by this contract",
               "default": null,
               "anyOf": [
                 {
@@ -34,13 +47,19 @@
               ]
             },
             "sender": {
-              "$ref": "#/definitions/HumanAddr"
+              "description": "address of person or contract that sent the tokens that triggered this Receive",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              ]
             }
           }
         }
       }
     },
     {
+      "description": "RetractBid will retract any active bid the calling address has made and return the tokens that are held in escrow",
       "type": "object",
       "required": [
         "retract_bid"
@@ -52,6 +71,7 @@
       }
     },
     {
+      "description": "ViewBid will display the amount of the active bid made by the calling address and time the bid was placed",
       "type": "object",
       "required": [
         "view_bid"
@@ -63,6 +83,7 @@
       }
     },
     {
+      "description": "Finalize will close the auction",
       "type": "object",
       "required": [
         "finalize"
@@ -75,6 +96,7 @@
           ],
           "properties": {
             "only_if_bids": {
+              "description": "true if auction creator wants to keep the auction open if there are no active bids",
               "type": "boolean"
             }
           }
@@ -82,6 +104,7 @@
       }
     },
     {
+      "description": "If the auction holds any funds after it has closed (should never happen), this will return those funds to their owners.  Should never be needed, but included in case of unforeseen error",
       "type": "object",
       "required": [
         "return_all"

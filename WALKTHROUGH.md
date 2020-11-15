@@ -393,8 +393,8 @@ First define an enum that matches the HandleMsg enum of the function you want to
 impl ExampleHandleMsg {
     pub fn to_cosmos_msg(
         &self,
-        callback_code_hash: &str,
-        contract_addr: &HumanAddr,
+        callback_code_hash: String,
+        contract_addr: HumanAddr,
         send_amount: Option<Uint128>,
     ) -> StdResult<CosmosMsg> {
         let mut msg = to_binary(self)?;
@@ -408,8 +408,8 @@ impl ExampleHandleMsg {
         }
         let execute = WasmMsg::Execute {
             msg,
-            contract_addr: contract_addr.clone(),
-            callback_code_hash: callback_code_hash.to_string(),
+            contract_addr,
+            callback_code_hash,
             send,
         };
         Ok(execute.into())
@@ -421,15 +421,15 @@ Then implement a function to turn the HandleMsg enum into a callback message you
 impl ExampleHandleMsg {
     pub fn to_cosmos_msg(
         &self,
-        callback_code_hash: &str,
-        contract_addr: &HumanAddr,
+        callback_code_hash: String,
+        contract_addr: HumanAddr,
     ) -> StdResult<CosmosMsg> {
         let mut msg = to_binary(self)?;
         space_pad(&mut msg.0, PADDING_BLOCK_SIZE);
         let execute = WasmMsg::Execute {
             msg,
-            contract_addr: contract_addr.clone(),
-            callback_code_hash: callback_code_hash.to_string(),
+            contract_addr,
+            callback_code_hash,
             send: vec![],
         };
         Ok(execute.into())
@@ -694,15 +694,15 @@ impl ExampleQueryMsg {
     pub fn query<S: Storage, A: Api, Q: Querier, T: DeserializeOwned>(
         &self,
         deps: &Extern<S, A, Q>,
-        callback_code_hash: &str,
-        contract_addr: &HumanAddr,
+        callback_code_hash: String,
+        contract_addr: HumanAddr,
     ) -> StdResult<T> {
         let mut msg = to_binary(self)?;
         space_pad(&mut msg.0, QUERY_BLOCK_SIZE);
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
-                contract_addr: contract_addr.clone(),
-                callback_code_hash: callback_code_hash.to_string(),
+                contract_addr,
+                callback_code_hash,
                 msg,
             }))
             .map_err(|err| {
