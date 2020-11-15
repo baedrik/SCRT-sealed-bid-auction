@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Change this to the code ID of the auction contract for whatever chain your secretcli is using
-contractcode="2"
+contractcode="16"
 
 cat << EOF
 Just a reminder that you need to have secretcli and jq installed.
@@ -198,8 +198,9 @@ EOF
             decdsenderr=$(jq '.output_error' <<<"$decdsend")
             if [[ "$decdsenderr" == "{}" ]]
             then
-                logresp=$(jq -r '.output_log[0].attributes[]|select(.key=="response").value' \
-                          <<<"$decdsend")
+                padkey=$(printf "%-256s" "response")
+                logresp=$(jq -r --arg KEY "$padkey" \
+                            '.output_log[0].attributes[]|select(.key==$KEY).value' <<<"$decdsend")
                 cleaned=$(echo $logresp | sed 's/\\//g')
                 jq <<<"$cleaned"
             else
@@ -285,8 +286,9 @@ EOF
             decdsenderr=$(jq '.output_error' <<<"$decdsend")
             if [[ "$decdsenderr" == "{}" ]]
             then
-                logresp=$(jq -r '.output_log[0].attributes[]|select(.key=="response").value' \
-                          <<<"$decdsend")
+                padkey=$(printf "%-256s" "response")
+                logresp=$(jq -r --arg KEY "$padkey" \
+                            '.output_log[0].attributes[]|select(.key==$KEY).value' <<<"$decdsend")
                 cleaned=$(echo $logresp | sed 's/\\//g')
                 jq <<<"$cleaned"
             else

@@ -1,269 +1,234 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::state::ContractInfo;
-use cosmwasm_std::{to_binary, Binary, CosmosMsg, HumanAddr, StdResult, Uint128, WasmMsg};
+use cosmwasm_std::{
+    Api, Binary, CosmosMsg, Extern, HumanAddr, Querier, StdResult, Storage, Uint128,
+};
 
-// Instantiating an auction requires:
-//     sell_contract: ContractInfo -- code hash and address of SNIP-20 contract of token for sale
-//     bid_contract: ContractInfo -- code hash and address of SNIP-20 contract of bid token
-//     sell_amount: Uint128 -- the amount you are selling
-//     minimum_bid: Uint128 -- minimum bid you will accept
-// optional:
-//     description: String -- free-form description of the auction (best to avoid double quotes).
-//                            As an example it could be the date the owner will likely finalize the
-//                            auction, or a list of other auctions for the same token, etc...
+use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_msg, TokenInfo};
+
+use crate::contract::BLOCK_SIZE;
+
+/// Instantiation message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
+    /// sell contract code hash and address
     pub sell_contract: ContractInfo,
+    /// bid contract code hash and address
     pub bid_contract: ContractInfo,
+    /// amount of tokens being sold
     pub sell_amount: Uint128,
+    /// minimum bid that will be accepted
     pub minimum_bid: Uint128,
+    /// Optional free-form description of the auction (best to avoid double quotes). As an example
+    /// it could be the date the owner will likely finalize the auction, or a list of other
+    /// auctions for the same token, etc...
     #[serde(default)]
     pub description: Option<String>,
 }
 
+/// Handle messages
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
-    // Receive gets called by the token contracts of the auction.  If it came from the sale token,
-    // it will consign the sent tokens.  If it came from the bid token, it will place a bid.  If
-    // any other address tries to call this, it will give an error message that the calling address
-    // is not a token in the auction.
-    //     sender: HumanAddr -- address of the token contract calling Receive
-    //     from: HumanAddr -- owner of the tokens sent to the auction
-    //     amount: Uint128 -- amount of tokens sent
-    //     msg: Option<Binary> -- not needed or used by this contract
+    /// Receive gets called by the token contracts of the auction.  If it came from the sale token, it
+    /// will consign the sent tokens.  If it came from the bid token, it will place a bid.  If any
+    /// other address tries to call this, it will give an error message that the calling address is
+    /// not a token in the auction.
     Receive {
+        /// address of person or contract that sent the tokens that triggered this Receive
         sender: HumanAddr,
+        /// address of the owner of the tokens sent to the auction
         from: HumanAddr,
+        /// amount of tokens sent
         amount: Uint128,
+        /// Optional base64 encoded message sent with the Send call -- not needed or used by this
+        /// contract
         #[serde(default)]
         msg: Option<Binary>,
     },
 
-    // RetractBid will retract any active bid the calling address has made and return the tokens that
-    // are held in escrow
+    /// RetractBid will retract any active bid the calling address has made and return the tokens
+    /// that are held in escrow
     RetractBid {},
 
-    // ViewBid will display the amount of the active bid made by the calling address and time the bid
-    // was placed
+    /// ViewBid will display the amount of the active bid made by the calling address and time the
+    /// bid was placed
     ViewBid {},
 
-    // Finalize will close the auction
-    //     only_if_bids: bool -- true if auction creator wants to keep the auction open if there are no
-    //                           active bids
+    /// Finalize will close the auction
     Finalize {
+        /// true if auction creator wants to keep the auction open if there are no active bids
         only_if_bids: bool,
     },
 
-    // If the auction holds any funds after it has closed (should never happen), this will return those
-    // funds to their owners.  Should never be needed, but included in case of unforeseen error
+    /// If the auction holds any funds after it has closed (should never happen), this will return
+    /// those funds to their owners.  Should never be needed, but included in case of unforeseen
+    /// error
     ReturnAll {},
 }
 
+/// Queries
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    // Returns the contract address and TokenInfo of the token(s) to be sold, the contract address
-    // and TokenInfo of the token(s) that would be accepted as bids, the amount of token(s) to be
-    // sold, the minimum bid that will be accepted, an optional description of the auction, the
-    // contract address of the auction, and the status of the auction (Accepting bids: Tokens to be
-    // sold have(not) been consigned; Closed (will also state if there are outstanding funds after
-    // auction closure))
+    /// Displays the auction information
     AuctionInfo {},
 }
 
+/// responses to queries
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
+    /// AuctionInfo query response
     AuctionInfo {
+        /// sell token address and TokenInfo query response
         sell_token: Token,
+        /// bid token address and TokenInfo query response
         bid_token: Token,
+        /// amount of tokens being sold
         sell_amount: Uint128,
+        /// minimum bid that will be accepted
         minimum_bid: Uint128,
+        /// Optional String description of auction
         #[serde(skip_serializing_if = "Option::is_none")]
         description: Option<String>,
+        /// address of auction contract
         auction_address: HumanAddr,
+        /// status of the auction can be "Accepting bids: Tokens to be sold have(not) been
+        /// consigned" or "Closed" (will also state if there are outstanding funds after auction
+        /// closure
         status: String,
     },
 }
 
-// Wraps the return of a token_info query on the SNIP-20 contracts
+/// token's contract address and TokenInfo response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct TokenQuery {
-    pub token_info: TokenInfo,
-}
-
-// structure of token related data used in the auction_info query
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
 pub struct Token {
+    /// contract address of token
     pub contract_address: HumanAddr,
+    /// Tokeninfo query response
     pub token_info: TokenInfo,
 }
 
-// Speculative format for SNIP-20 Token_info calls.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
-#[serde(rename_all = "snake_case")]
-pub struct TokenInfo {
-    pub name: String,
-    pub symbol: String,
-    pub decimals: u8,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_supply: Option<Uint128>,
-}
-
+/// success or failure response
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
-#[serde(rename_all = "snake_case")]
 pub enum ResponseStatus {
     Success,
     Failure,
 }
 
-// Responses from handle functions.
+/// Responses from handle functions
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleAnswer {
+    /// response from consign attempt
     Consign {
+        /// success or failure
         status: ResponseStatus,
+        /// execution description
         message: String,
+        /// Optional amount consigned
         #[serde(skip_serializing_if = "Option::is_none")]
         amount_consigned: Option<Uint128>,
+        /// Optional amount that still needs to be consigned
         #[serde(skip_serializing_if = "Option::is_none")]
         amount_needed: Option<Uint128>,
+        /// Optional amount of tokens returned from escrow
         #[serde(skip_serializing_if = "Option::is_none")]
         amount_returned: Option<Uint128>,
     },
+    /// response from bid attempt
     Bid {
+        /// success or failure
         status: ResponseStatus,
+        /// execution description
         message: String,
+        /// Optional amount of previous bid returned from escrow
         #[serde(skip_serializing_if = "Option::is_none")]
         previous_bid: Option<Uint128>,
+        /// Optional amount bid
         #[serde(skip_serializing_if = "Option::is_none")]
         amount_bid: Option<Uint128>,
+        /// Optional amount of tokens returned from escrow
         #[serde(skip_serializing_if = "Option::is_none")]
         amount_returned: Option<Uint128>,
     },
+    /// response from closing the auction
     CloseAuction {
+        /// success or failure
         status: ResponseStatus,
+        /// execution description
         message: String,
+        /// Optional amount of winning bid
         #[serde(skip_serializing_if = "Option::is_none")]
         winning_bid: Option<Uint128>,
+        /// Optional amount of tokens returned form escrow
         #[serde(skip_serializing_if = "Option::is_none")]
         amount_returned: Option<Uint128>,
     },
+    /// response from attempt to retract bid
     RetractBid {
+        /// success or failure
         status: ResponseStatus,
+        /// execution description
         message: String,
+        /// Optional amount of tokens returned from escrow
         #[serde(skip_serializing_if = "Option::is_none")]
         amount_returned: Option<Uint128>,
     },
+    /// generic status response
     Status {
+        /// success or failure
         status: ResponseStatus,
+        /// execution description
         message: String,
     },
 }
 
-// used to serialize the message to transfer tokens
+/// code hash and address of a contract
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct TransferMsg {
-    pub recipient: HumanAddr,
-    pub amount: Uint128,
-    pub padding: Option<String>,
+pub struct ContractInfo {
+    /// contract's code hash string
+    pub code_hash: String,
+    /// contract's address
+    pub address: HumanAddr,
 }
 
-impl TransferMsg {
-    pub fn new(recipient: HumanAddr, amount: Uint128) -> Self {
-        let padding = Some(" ".repeat(40 - amount.to_string().len()));
-        Self {
+impl ContractInfo {
+    /// Returns a StdResult<CosmosMsg> used to execute Transfer
+    ///
+    /// # Arguments
+    ///
+    /// * `recipient` - reference to address tokens are to be sent to
+    /// * `amount` - Uint128 amount of tokens to send
+    pub fn transfer_msg(&self, recipient: &HumanAddr, amount: Uint128) -> StdResult<CosmosMsg> {
+        transfer_msg(
             recipient,
             amount,
-            padding,
-        }
+            None,
+            BLOCK_SIZE,
+            &self.code_hash,
+            &self.address,
+        )
     }
-    /// serializes the message
-    pub fn into_binary(self) -> StdResult<Binary> {
-        let msg = TransferHandleMsg::Transfer(self);
-        to_binary(&msg)
+    /// Returns a StdResult<CosmosMsg> used to execute RegisterReceive
+    ///
+    /// # Arguments
+    ///
+    /// * `code_hash` - string slice holding code hash contract to be called when sent tokens
+    pub fn register_receive_msg(&self, code_hash: &str) -> StdResult<CosmosMsg> {
+        register_receive_msg(code_hash, None, BLOCK_SIZE, &self.code_hash, &self.address)
     }
-
-    /// creates a cosmos_msg sending this struct to the named contract
-    pub fn into_cosmos_msg(
-        self,
-        callback_code_hash: String,
-        contract_addr: HumanAddr,
-    ) -> StdResult<CosmosMsg> {
-        let msg = self.into_binary()?;
-        let execute = WasmMsg::Execute {
-            msg,
-            callback_code_hash,
-            contract_addr,
-            send: vec![],
-        };
-        Ok(execute.into())
+    /// Returns a StdResult<TokenInfo> from performing TokenInfo query
+    ///
+    /// # Arguments
+    ///
+    /// * `deps` - reference to Extern that holds all the external contract dependencies
+    pub fn token_info_query<S: Storage, A: Api, Q: Querier>(
+        &self,
+        deps: &Extern<S, A, Q>,
+    ) -> StdResult<TokenInfo> {
+        token_info_query(deps, BLOCK_SIZE, &self.code_hash, &self.address)
     }
-}
-// This is just a helper to properly serialize the above message
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
-enum TransferHandleMsg {
-    Transfer(TransferMsg),
-}
-
-// used to serialize the message to register a receive function with a SNIP-20 contract
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct RegisterMsg {
-    pub code_hash: String,
-}
-impl RegisterMsg {
-    /// serializes the message
-    pub fn into_binary(self) -> StdResult<Binary> {
-        let msg = RegisterHandleMsg::RegisterReceive(self);
-        to_binary(&msg)
-    }
-
-    /// creates a cosmos_msg sending this struct to the named contract
-    pub fn into_cosmos_msg(
-        self,
-        callback_code_hash: String,
-        contract_addr: HumanAddr,
-    ) -> StdResult<CosmosMsg> {
-        let msg = self.into_binary()?;
-        let execute = WasmMsg::Execute {
-            msg,
-            callback_code_hash,
-            contract_addr,
-            send: vec![],
-        };
-        Ok(execute.into())
-    }
-}
-// This is just a helper to properly serialize the above message
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
-enum RegisterHandleMsg {
-    RegisterReceive(RegisterMsg),
-}
-
-// space_pad -- pad a Vec<u8> with blanks at the end to length of multiples of block_size
-pub fn space_pad(block_size: usize, message: &mut Vec<u8>) -> &mut Vec<u8> {
-    let len = message.len();
-    let surplus = len % block_size;
-    if surplus == 0 {
-        return message;
-    }
-
-    let missing = block_size - surplus;
-    message.reserve(missing);
-    message.extend(std::iter::repeat(b' ').take(missing));
-    message
-}
-
-// pad_log_str -- pad a String with blanks so that it has length of block_size
-pub fn pad_log_str(block_size: usize, response: &mut String) {
-    response.push_str(&(" ".repeat(block_size - response.len())));
 }

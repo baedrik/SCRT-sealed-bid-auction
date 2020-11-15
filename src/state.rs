@@ -9,70 +9,77 @@ use cosmwasm_storage::{
 
 use std::collections::HashSet;
 
-// struct containing token contract info
-// hash: String -- code hash of the SNIP-20 token contract
-// address: HumanAddr -- address of the SNIP-20 token contract
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ContractInfo {
-    pub code_hash: String,
-    pub address: HumanAddr,
-}
+use crate::msg::ContractInfo;
 
-// state of the auction holds:
-// auction_addr: HumanAddr -- address of the auction contract
-// seller: HumanAddr -- address of the auction owner
-// sell_contract: ContractInfo -- code hash and address of sale token(s) SNIP-20 contract
-// bid_contract: ContractInfo -- code hash and address of bid token(s) SNIP-20 contract
-// sell_amount: Uint128 -- amount being sold
-// minimum_bid: Uint128 -- minimum bid that will be accepted
-// currently_consigned: Uint128 -- amount of sell tokens consigned so far
-// bidders: HashSet<Vec<u8>> -- list of addresses with active bids, can't use CanonicalAddr,
-//                              because it does not implement Eq or Hash
-// is_completed: true if the auction is over
-// tokens_consigned: true if seller has consigned the tokens for sale to the auction contract
-// description: Option<String> -- optional description of the auction
+/// state of the auction
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
+    /// address of auction contract
     pub auction_addr: HumanAddr,
+    /// address of auction owner
     pub seller: HumanAddr,
+    /// code hash and address of sell token contract
     pub sell_contract: ContractInfo,
+    /// code hash and address of bid token contract
     pub bid_contract: ContractInfo,
+    /// amount of tokens for sale
     pub sell_amount: Uint128,
+    /// minimum bid that will be accepted
     pub minimum_bid: Uint128,
+    /// amount of tokens currently consigned to auction escrow
     pub currently_consigned: Uint128,
+    /// list of addresses of bidders
     pub bidders: HashSet<Vec<u8>>,
+    /// true if the auction is closed
     pub is_completed: bool,
+    /// true if all tokens for sale have been consigned to escrow
     pub tokens_consigned: bool,
+    /// Optional text description of auction
     pub description: Option<String>,
 }
 
-// functions to save/read the state of the auction
+/// storage key for auction state
 pub static CONFIG_KEY: &[u8] = b"config";
-
+/// Returns writable Singleton Storage associated with auction state
+///
+/// # Arguments
+///
+/// * `storage` - mutable reference to the contract's storage
 pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
     singleton(storage, CONFIG_KEY)
 }
-
+/// Returns read-only Singleton Storage associated with auction state
+///
+/// # Arguments
+///
+/// * `storage` - reference to the contract's storage
 pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
     singleton_read(storage, CONFIG_KEY)
 }
 
-// Bid data:
-// amount: amount of tokens bid
-// timestamp: time the bid was received, because ties go to the first to bid
+/// bid data
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug, JsonSchema)]
 pub struct Bid {
+    /// amount of bid
     pub amount: Uint128,
+    /// time bid was placed
     pub timestamp: u64,
 }
-
-// functions to return a bucket with all bids
+/// storage key for bids
 pub const PREFIX_BIDS: &[u8] = b"bids";
-
+/// Returns Bucket Storage associated with Bid type
+///
+/// # Arguments
+///
+/// * `storage` - mutable reference to the contract's storage
 pub fn bids<S: Storage>(storage: &mut S) -> Bucket<S, Bid> {
     bucket(PREFIX_BIDS, storage)
 }
-
+/// Returns read-only Bucket Storage associated with Bid type
+///
+/// # Arguments
+///
+/// * `storage` - reference to the contract's storage
 pub fn bids_read<S: ReadonlyStorage>(storage: &S) -> ReadonlyBucket<S, Bid> {
     bucket_read(PREFIX_BIDS, storage)
 }

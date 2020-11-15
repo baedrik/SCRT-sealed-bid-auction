@@ -1,18 +1,18 @@
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, CanonicalAddr, CosmosMsg, Env, Extern, HandleResponse, HumanAddr,
-    InitResponse, Querier, QueryRequest, QueryResult, StdError, StdResult, Storage, Uint128,
-    WasmQuery,
+    log, to_binary, Api, CanonicalAddr, Env, Extern, HandleResponse, HandleResult, HumanAddr,
+    InitResponse, InitResult, Querier, QueryResult, StdError, Storage, Uint128,
 };
 
 use std::collections::HashSet;
 
 use serde_json_wasm as serde_json;
 
+use secret_toolkit::utils::{pad_handle_result, pad_query_result};
+
 use crate::msg::{
-    pad_log_str, space_pad, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, RegisterMsg,
-    ResponseStatus,
+    HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, ResponseStatus,
     ResponseStatus::{Failure, Success},
-    Token, TokenQuery, TransferMsg,
+    Token,
 };
 use crate::state::{bids, bids_read, config, config_read, Bid, State};
 
@@ -20,15 +20,24 @@ use chrono::NaiveDateTime;
 
 // pad handle responses and log attributes to blocks of 256 bytes to prevent leaking info based on
 // response size
-pub const RESPONSE_BLOCK_SIZE: usize = 256;
+pub const BLOCK_SIZE: usize = 256;
 
 ////////////////////////////////////// Init ///////////////////////////////////////
-// initialize the auction and register receiving function with token contracts
+/// Returns InitResult
+///
+/// Initializes the auction state and registers Receive function with sell and bid
+/// token contracts
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `env` - Env of contract's environment
+/// * `msg` - InitMsg passed in with the instantiation message
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
-) -> StdResult<InitResponse> {
+) -> InitResult {
     if msg.sell_amount == Uint128(0) {
         return Err(StdError::generic_err("Sell amount must be greater than 0"));
     }
@@ -38,10 +47,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         ));
     }
     let state = State {
-        auction_addr: env.contract.address.clone(),
+        auction_addr: env.contract.address,
         seller: env.message.sender,
-        sell_contract: msg.sell_contract.clone(),
-        bid_contract: msg.bid_contract.clone(),
+        sell_contract: msg.sell_contract,
+        bid_contract: msg.bid_contract,
         sell_amount: msg.sell_amount,
         minimum_bid: msg.minimum_bid,
         currently_consigned: Uint128(0),
@@ -53,32 +62,34 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     config(&mut deps.storage).save(&state)?;
 
-    // register receive functions with the bid/sell token contracts
-    let register_rec_msg = RegisterMsg {
-        code_hash: env.contract_code_hash,
-    };
-    let mut cosmsg = Vec::new();
-    cosmsg.push(
-        register_rec_msg
-            .clone()
-            .into_cosmos_msg(msg.sell_contract.code_hash, msg.sell_contract.address)?,
-    );
-    cosmsg.push(
-        register_rec_msg.into_cosmos_msg(msg.bid_contract.code_hash, msg.bid_contract.address)?,
-    );
+    // register receive with the bid/sell token contracts
 
     Ok(InitResponse {
-        messages: cosmsg,
+        messages: vec![
+            state
+                .sell_contract
+                .register_receive_msg(&env.contract_code_hash)?,
+            state
+                .bid_contract
+                .register_receive_msg(&env.contract_code_hash)?,
+        ],
         log: vec![],
     })
 }
 
 ///////////////////////////////////// Handle //////////////////////////////////////
+/// Returns HandleResult
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `env` - Env of contract's environment
+/// * `msg` - HandleMsg passed in with the execute message
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let response = match msg {
         HandleMsg::RetractBid { .. } => try_retract(deps, &env.message.sender),
         HandleMsg::Finalize { only_if_bids, .. } => try_finalize(deps, env, only_if_bids, false),
@@ -86,26 +97,22 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Receive { from, amount, .. } => try_receive(deps, env, &from, amount),
         HandleMsg::ViewBid { .. } => try_view_bid(deps, &env.message.sender),
     };
-
-    response.map(|mut response| {
-        response.data = response.data.map(|mut data| {
-            space_pad(RESPONSE_BLOCK_SIZE, &mut data.0);
-            data
-        });
-        response
-    })
+    pad_handle_result(response, BLOCK_SIZE)
 }
 
-// try_view_bid -- Allows the message sender to view their current active bid
-//     bidder: &HumanAddr -- address of the message sender
-// return value: StdResult<HandleResponse>
+/// Returns HandleResult
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `bidder` - reference to address wanting to view its bid
 fn try_view_bid<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     bidder: &HumanAddr,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let state = config_read(&deps.storage).load()?;
 
-    let bidder_raw = &deps.api.canonical_address(&bidder.clone())?;
+    let bidder_raw = &deps.api.canonical_address(bidder)?;
     let bidstore = bids_read(&deps.storage);
     let mut amount_bid: Option<Uint128> = None;
     let mut message = String::new();
@@ -123,12 +130,12 @@ fn try_view_bid<S: Storage, A: Api, Q: Querier>(
             ));
         } else {
             status = Failure;
-            message.push_str(&format!("No active bid for address: {}", bidder.clone()));
+            message.push_str(&format!("No active bid for address: {}", bidder));
         }
     // no active bid found
     } else {
         status = Failure;
-        message.push_str(&format!("No active bid for address: {}", bidder.clone()));
+        message.push_str(&format!("No active bid for address: {}", bidder));
     }
     Ok(HandleResponse {
         messages: vec![],
@@ -143,16 +150,23 @@ fn try_view_bid<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-// try_receive -- processes the callbacks from token contracts after receiving tokens
-//     from: &HumanAddr -- owner address  of the tokens sent to the auction
-//     amount: Uint128 -- amount of tokens sent to auction
-// return value: StdResult<HandleResponse>
+/// Returns HandleResult
+///
+/// process the Receive message sent after either bid or sell token contract sent tokens to
+/// auction escrow
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `env` - Env of contract's environment
+/// * `from` - reference to address of owner of tokens sent to escrow
+/// * `amount` - Uint128 amount sent to escrow
 fn try_receive<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     from: &HumanAddr,
     amount: Uint128,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let mut state = config_read(&deps.storage).load()?;
     if env.message.sender == state.sell_contract.address {
         try_consign(deps, from, amount, &mut state)
@@ -163,13 +177,11 @@ fn try_receive<S: Storage, A: Api, Q: Querier>(
             "Address: {} is not a token in this auction",
             env.message.sender
         );
-        let mut resp = serde_json::to_string(&HandleAnswer::Status {
+        let resp = serde_json::to_string(&HandleAnswer::Status {
             status: Failure,
             message,
         })
         .unwrap();
-
-        pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
 
         Ok(HandleResponse {
             messages: vec![],
@@ -179,25 +191,28 @@ fn try_receive<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-// try_consign -- consigns tokens for sale.  If consigning more than the sale amount, any extra
-//                tokens are returned
-//     owner: &HumanAddr -- owner of tokens sent for consignment
-//     amount: Uint128 -- amount to be consigned
-//     state: &mut State -- auction state
-// return value: StdResult<HandleResponse>
+/// Returns HandleResult
+///
+/// process the attempt to consign sale tokens to auction escrow
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `owner` - reference to address of owner of tokens sent to escrow
+/// * `amount` - Uint128 amount sent to escrow
 fn try_consign<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     owner: &HumanAddr,
     amount: Uint128,
     state: &mut State,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     // if not the auction owner, send the tokens back
     if *owner != state.seller {
         let message = String::from(
             "Only auction creator can consign tokens for sale.  Your tokens have been returned",
         );
 
-        let mut resp = serde_json::to_string(&HandleAnswer::Consign {
+        let resp = serde_json::to_string(&HandleAnswer::Consign {
             status: Failure,
             message,
             amount_consigned: None,
@@ -206,14 +221,8 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
         })
         .unwrap();
 
-        pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
         return Ok(HandleResponse {
-            messages: vec![transfer_tokens_msg(
-                state.sell_contract.code_hash.clone(),
-                &state.sell_contract.address.clone(),
-                &owner.clone(),
-                amount,
-            )?],
+            messages: vec![state.sell_contract.transfer_msg(owner, amount)?],
             log: vec![log("response", resp)],
             data: None,
         });
@@ -222,7 +231,7 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
     if state.is_completed {
         let message = String::from("Auction has ended. Your tokens have been returned");
 
-        let mut resp = serde_json::to_string(&HandleAnswer::Consign {
+        let resp = serde_json::to_string(&HandleAnswer::Consign {
             status: Failure,
             message,
             amount_consigned: None,
@@ -231,14 +240,8 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
         })
         .unwrap();
 
-        pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
         return Ok(HandleResponse {
-            messages: vec![transfer_tokens_msg(
-                state.sell_contract.code_hash.clone(),
-                &state.sell_contract.address.clone(),
-                &owner.clone(),
-                amount,
-            )?],
+            messages: vec![state.sell_contract.transfer_msg(owner, amount)?],
             log: vec![log("response", resp)],
             data: None,
         });
@@ -249,7 +252,7 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
             "Tokens to be sold have already been consigned. Your tokens have been returned",
         );
 
-        let mut resp = serde_json::to_string(&HandleAnswer::Consign {
+        let resp = serde_json::to_string(&HandleAnswer::Consign {
             status: Failure,
             message,
             amount_consigned: Some(state.currently_consigned),
@@ -258,14 +261,8 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
         })
         .unwrap();
 
-        pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
         return Ok(HandleResponse {
-            messages: vec![transfer_tokens_msg(
-                state.sell_contract.code_hash.clone(),
-                &state.sell_contract.address.clone(),
-                &owner.clone(),
-                amount,
-            )?],
+            messages: vec![state.sell_contract.transfer_msg(owner, amount)?],
             log: vec![log("response", resp)],
             data: None,
         });
@@ -295,18 +292,13 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
         // if consigned more than needed, return excess tokens
         if consign_total > state.sell_amount {
             excess = Some((consign_total - state.sell_amount).unwrap());
-            cos_msg.push(transfer_tokens_msg(
-                state.sell_contract.code_hash.clone(),
-                &state.sell_contract.address.clone(),
-                &owner.clone(),
-                excess.unwrap(),
-            )?);
+            cos_msg.push(state.sell_contract.transfer_msg(owner, excess.unwrap())?);
             log_msg.push_str(".  Excess tokens have been returned");
         }
     }
     config(&mut deps.storage).save(state)?;
 
-    let mut resp = serde_json::to_string(&HandleAnswer::Consign {
+    let resp = serde_json::to_string(&HandleAnswer::Consign {
         status,
         message: log_msg,
         amount_consigned: Some(state.currently_consigned),
@@ -315,8 +307,6 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
     })
     .unwrap();
 
-    pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
-
     Ok(HandleResponse {
         messages: cos_msg,
         log: vec![log("response", resp)],
@@ -324,25 +314,29 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-// try_bid - places a bid.  If there was a previous bid, return the smaller bid to the bidder.  If
-//           they are the same amount, keep the bid placed first so that it has the earlier
-//           timestamp
-//     bidder: &HumanAddr -- owner of tokens sent as a bid
-//     amount: Uint128 -- amount bid
-//     state: &mut State --  auction state
-// return value: StdResult<HandleResponse>
+/// Returns HandleResult
+///
+/// process the bid attempt
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `env` - Env of contract's environment
+/// * `bidder` - reference to address of owner of tokens sent to escrow
+/// * `amount` - Uint128 amount sent to escrow
+/// * `state` - mutable reference to auction state
 fn try_bid<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     bidder: &HumanAddr,
     amount: Uint128,
     state: &mut State,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     // if auction is over, send the tokens back
     if state.is_completed {
         let message = String::from("Auction has ended. Bid tokens have been returned");
 
-        let mut resp = serde_json::to_string(&HandleAnswer::Bid {
+        let resp = serde_json::to_string(&HandleAnswer::Bid {
             status: Failure,
             message,
             previous_bid: None,
@@ -351,14 +345,8 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
         })
         .unwrap();
 
-        pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
         return Ok(HandleResponse {
-            messages: vec![transfer_tokens_msg(
-                state.bid_contract.code_hash.clone(),
-                &state.bid_contract.address.clone(),
-                &bidder.clone(),
-                amount,
-            )?],
+            messages: vec![state.bid_contract.transfer_msg(bidder, amount)?],
             log: vec![log("response", resp)],
             data: None,
         });
@@ -367,7 +355,7 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
     if amount == Uint128(0) {
         let message = String::from("Bid must be greater than 0");
 
-        let mut resp = serde_json::to_string(&HandleAnswer::Bid {
+        let resp = serde_json::to_string(&HandleAnswer::Bid {
             status: Failure,
             message,
             previous_bid: None,
@@ -376,7 +364,6 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
         })
         .unwrap();
 
-        pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
         return Ok(HandleResponse {
             messages: vec![],
             log: vec![log("response", resp)],
@@ -388,7 +375,7 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
         let message =
             String::from("Bid was less than minimum allowed.  Bid tokens have been returned");
 
-        let mut resp = serde_json::to_string(&HandleAnswer::Bid {
+        let resp = serde_json::to_string(&HandleAnswer::Bid {
             status: Failure,
             message,
             previous_bid: None,
@@ -397,20 +384,14 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
         })
         .unwrap();
 
-        pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
         return Ok(HandleResponse {
-            messages: vec![transfer_tokens_msg(
-                state.bid_contract.code_hash.clone(),
-                &state.bid_contract.address.clone(),
-                &bidder.clone(),
-                amount,
-            )?],
+            messages: vec![state.bid_contract.transfer_msg(bidder, amount)?],
             log: vec![log("response", resp)],
             data: None,
         });
     }
     let mut return_amount: Option<Uint128> = None;
-    let bidder_raw = &deps.api.canonical_address(&bidder.clone())?;
+    let bidder_raw = &deps.api.canonical_address(bidder)?;
     let bidstore = bids_read(&deps.storage);
 
     // if there is an active bid from this address
@@ -424,7 +405,7 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
                      returned",
                 );
 
-                let mut resp = serde_json::to_string(&HandleAnswer::Bid {
+                let resp = serde_json::to_string(&HandleAnswer::Bid {
                     status: Failure,
                     message,
                     previous_bid: Some(old_bid.amount),
@@ -433,14 +414,8 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
                 })
                 .unwrap();
 
-                pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
                 return Ok(HandleResponse {
-                    messages: vec![transfer_tokens_msg(
-                        state.bid_contract.code_hash.clone(),
-                        &state.bid_contract.address.clone(),
-                        &bidder.clone(),
-                        amount,
-                    )?],
+                    messages: vec![state.bid_contract.transfer_msg(bidder, amount)?],
                     log: vec![log("response", resp)],
                     data: None,
                 });
@@ -467,15 +442,10 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
 
     // if need to return the old bid
     if let Some(returned) = return_amount {
-        cos_msg.push(transfer_tokens_msg(
-            state.bid_contract.code_hash.clone(),
-            &state.bid_contract.address.clone(),
-            &bidder.clone(),
-            returned,
-        )?);
+        cos_msg.push(state.bid_contract.transfer_msg(bidder, returned)?);
         message.push_str(". Previously bid tokens have been returned");
     }
-    let mut resp = serde_json::to_string(&HandleAnswer::Bid {
+    let resp = serde_json::to_string(&HandleAnswer::Bid {
         status: Success,
         message,
         previous_bid: None,
@@ -484,7 +454,6 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
     })
     .unwrap();
 
-    pad_log_str(RESPONSE_BLOCK_SIZE, &mut resp);
     Ok(HandleResponse {
         messages: cos_msg,
         log: vec![log("response", resp)],
@@ -492,16 +461,21 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-// try_retract -- retracts an active bid
-//     bidder: &HumanAddr -- address of bidder whose bid should be retracted
-// return value: StdResult<HandleResponse>
+/// Returns HandleResult
+///
+/// attempt to retract current bid
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `bidder` - reference to address of bidder
 fn try_retract<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     bidder: &HumanAddr,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let mut state = config_read(&deps.storage).load()?;
 
-    let bidder_raw = &deps.api.canonical_address(&bidder.clone())?;
+    let bidder_raw = &deps.api.canonical_address(bidder)?;
     let mut bids = bids(&mut deps.storage);
     let mut cos_msg = Vec::new();
     let sent: Option<Uint128>;
@@ -514,25 +488,20 @@ fn try_retract<S: Storage, A: Api, Q: Querier>(
             bids.remove(bidder_raw.as_slice());
             state.bidders.remove(&bidder_raw.as_slice().to_vec());
             config(&mut deps.storage).save(&state)?;
-            cos_msg.push(transfer_tokens_msg(
-                state.bid_contract.code_hash.clone(),
-                &state.bid_contract.address,
-                &bidder.clone(),
-                old_bid.amount,
-            )?);
+            cos_msg.push(state.bid_contract.transfer_msg(bidder, old_bid.amount)?);
             status = Success;
             sent = Some(old_bid.amount);
             log_msg.push_str("Bid retracted.  Tokens have been returned");
         } else {
             status = Failure;
             sent = None;
-            log_msg.push_str(&format!("No active bid for address: {}", bidder.clone()));
+            log_msg.push_str(&format!("No active bid for address: {}", bidder));
         }
     // no active bid found
     } else {
         status = Failure;
         sent = None;
-        log_msg.push_str(&format!("No active bid for address: {}", bidder.clone()));
+        log_msg.push_str(&format!("No active bid for address: {}", bidder));
     }
     Ok(HandleResponse {
         messages: cos_msg,
@@ -545,26 +514,22 @@ fn try_retract<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-// try_finalize -- Closes the auction.  If the sale tokens are fully consigned and if there is at
-//                 least one active bid, the sale will finalize with the highest bid (if there is
-//                 a tie, the tying bid received first will be the winner). All non-winning bids
-//                 will be returned to the bidders.  If there are no bids, the auction will remain
-//                 open if the only_if_bids parameter is true.  If the auction closes without
-//                 the sale tokens being fully consigned, any consigned tokens will be returned to
-//                 the auction creator, and all bids will be returned to the bidders. This can also
-//                 be called even after an auction was previously closed.  It will return any bids
-//                 or consignment left in the auction's control after it was closed in the event
-//                 of some unforeseen error or race-condition.  This should never be needed, but
-//                 is provided as a safety precaution
-//     only_if_bids: bool -- true if owner does not want to close the auction if there are no bids
-//     return_all: bool -- true if called from a return_all execute
-// return value: StdResult<HandleResponse>
+/// Returns HandleResult
+///
+/// closes the auction and sends all the tokens in escrow to where they belong
+///
+/// # Arguments
+///
+/// * `deps` - mutable reference to Extern containing all the contract's external dependencies
+/// * `env` - Env of contract's environment
+/// * `only_if_bids` - true if auction should stay open if there are no bids
+/// * `return_all` - true if being called from the return_all fallback plan
 fn try_finalize<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     only_if_bids: bool,
     return_all: bool,
-) -> StdResult<HandleResponse> {
+) -> HandleResult {
     let mut state = config_read(&deps.storage).load()?;
     // can only do a return_all if the auction is closed
     if return_all && !state.is_completed {
@@ -641,15 +606,12 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
             });
             // if there was a winner, swap the tokens
             if let Some(winning_bid) = bid_list.pop() {
-                cos_msg.push(transfer_tokens_msg(
-                    state.bid_contract.code_hash.clone(),
-                    &state.bid_contract.address,
-                    &state.seller,
-                    winning_bid.bid.amount,
-                )?);
-                cos_msg.push(transfer_tokens_msg(
-                    state.sell_contract.code_hash.clone(),
-                    &state.sell_contract.address,
+                cos_msg.push(
+                    state
+                        .bid_contract
+                        .transfer_msg(&state.seller, winning_bid.bid.amount)?,
+                );
+                cos_msg.push(state.sell_contract.transfer_msg(
                     &deps.api.human_address(&winning_bid.bidder)?,
                     state.sell_amount,
                 )?);
@@ -664,10 +626,8 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
         }
         // loops through all remaining bids to return them to the bidders
         for losing_bid in &bid_list {
-            cos_msg.push(transfer_tokens_msg(
-                state.bid_contract.code_hash.clone(),
-                &state.bid_contract.address.clone(),
-                &deps.api.human_address(&losing_bid.bidder.clone())?.clone(),
+            cos_msg.push(state.bid_contract.transfer_msg(
+                &deps.api.human_address(&losing_bid.bidder)?,
                 losing_bid.bid.amount,
             )?);
             bids.remove(&losing_bid.bidder.as_slice());
@@ -678,12 +638,11 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
     // return any tokens that have been consigned to the auction owner (can happen if owner
     // finalized the auction before consigning the full sale amount or if there were no bids)
     if state.currently_consigned > Uint128(0) {
-        cos_msg.push(transfer_tokens_msg(
-            state.sell_contract.code_hash.clone(),
-            &state.sell_contract.address,
-            &state.seller,
-            state.currently_consigned,
-        )?);
+        cos_msg.push(
+            state
+                .sell_contract
+                .transfer_msg(&state.seller, state.currently_consigned)?,
+        );
         if !return_all {
             amount_returned = Some(state.currently_consigned);
         }
@@ -699,22 +658,25 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
         config(&mut deps.storage).save(&state)?;
     }
 
-    let mut log_msg = String::new();
-
-    if winning_amount.is_some() {
-        log_msg.push_str("Sale finalized.  You have been sent the winning bid tokens");
+    let log_msg = if winning_amount.is_some() {
+        "Sale finalized.  You have been sent the winning bid tokens".to_string()
     } else if amount_returned.is_some() {
-        log_msg.push_str("Auction closed.  You have been returned the consigned tokens");
-        if !state.tokens_consigned {
-            log_msg.push_str(" because you did not consign the full sale amount");
+        let cause = if !state.tokens_consigned {
+            " because you did not consign the full sale amount"
         } else if no_bids {
-            log_msg.push_str(" because there were no active bids");
-        }
+            " because there were no active bids"
+        } else {
+            ""
+        };
+        format!(
+            "Auction closed.  You have been returned the consigned tokens{}",
+            cause
+        )
     } else if return_all {
-        log_msg.push_str("Outstanding funds have been returned");
+        "Outstanding funds have been returned".to_string()
     } else {
-        log_msg.push_str("Auction has been closed");
-    }
+        "Auction has been closed".to_string()
+    };
     Ok(HandleResponse {
         messages: cos_msg,
         log: vec![],
@@ -728,79 +690,58 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
 }
 
 /////////////////////////////////////// Query /////////////////////////////////////
+/// Returns QueryResult
+///
+/// # Arguments
+///
+/// * `deps` - reference to Extern containing all the contract's external dependencies
+/// * `msg` - QueryMsg passed in with the query call
 pub fn query<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, msg: QueryMsg) -> QueryResult {
-    match msg {
-        QueryMsg::AuctionInfo { .. } => try_query_info(&deps),
-    }
+    let response = match msg {
+        QueryMsg::AuctionInfo { .. } => try_query_info(deps),
+    };
+    pad_query_result(response, BLOCK_SIZE)
 }
 
-// try_query_info -- queries all the auction info in the format of msg::QueryAnswer::AuctionInfo
-// return value: QueryResult
+/// Returns QueryResult
+///
+/// # Arguments
+///
+/// * `deps` - reference to Extern containing all the contract's external dependencies
 fn try_query_info<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> QueryResult {
     let state = config_read(&deps.storage).load()?;
 
-    let queryreq = Binary(Vec::from("{\"token_info\":{}}"));
-
     // get sell token info
-    let sell_token_info: TokenQuery = deps
-        .querier
-        .query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: state.sell_contract.address.clone(),
-            callback_code_hash: state.sell_contract.code_hash.clone(),
-            msg: queryreq.clone(),
-        }))
-        .map_err(|err| {
-            StdError::generic_err(format!(
-                "{{\"error\": \"Error getting sell token {} info: {}\"}}",
-                state.sell_contract.address, err
-            ))
-        })?;
-
+    let sell_token_info = state.sell_contract.token_info_query(deps)?;
     // get bid token info
-    let bid_token_info: TokenQuery = deps
-        .querier
-        .query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: state.bid_contract.address.clone(),
-            callback_code_hash: state.bid_contract.code_hash.clone(),
-            msg: queryreq,
-        }))
-        .map_err(|err| {
-            StdError::generic_err(format!(
-                "{{\"error\": \"Error getting bid token {} info: {}\"}}",
-                state.bid_contract.address, err
-            ))
-        })?;
+    let bid_token_info = state.bid_contract.token_info_query(deps)?;
 
     // build status string
-    let mut status = String::new();
-    if state.is_completed {
-        status.push_str("Closed");
-        if !state.bidders.is_empty() || state.currently_consigned > Uint128(0) {
-            status.push_str(
-                ", but found outstanding balances.  Please run either retract_bid to \
+    let status = if state.is_completed {
+        let locked = if !state.bidders.is_empty() || state.currently_consigned > Uint128(0) {
+            ", but found outstanding balances.  Please run either retract_bid to \
                 retrieve your non-winning bid, or return_all to return all outstanding bids/\
-                consignment.",
-            );
-        }
+                consignment."
+        } else {
+            ""
+        };
+        format!("Closed{}", locked)
     } else {
-        let mut consign = String::new();
-        if !state.tokens_consigned {
-            consign.push_str(" NOT");
-        }
-        status.push_str(&format!(
+        let consign = if !state.tokens_consigned { " NOT" } else { "" };
+        format!(
             "Accepting bids: Token(s) to be sold have{} been consigned to the auction",
             consign
-        ));
-    }
+        )
+    };
 
     to_binary(&QueryAnswer::AuctionInfo {
         sell_token: Token {
             contract_address: state.sell_contract.address,
-            token_info: sell_token_info.token_info,
+            token_info: sell_token_info,
         },
         bid_token: Token {
             contract_address: state.bid_contract.address,
-            token_info: bid_token_info.token_info,
+            token_info: bid_token_info,
         },
         sell_amount: state.sell_amount,
         minimum_bid: state.minimum_bid,
@@ -808,21 +749,4 @@ fn try_query_info<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Que
         auction_address: state.auction_addr,
         status,
     })
-}
-
-// transfer_tokens_msg - generates a callback msg to transfer tokens
-//    code_hash: String -- code hash of the contract of the token you want to send
-//    contract_addr: &HumanAddr -- contract address of the token you want to send
-//    recipient: &HumanAddr -- address you are sending to
-//    amount: Uint128 -- amount you are sending
-//
-// return value: StdResult<CosmosMsg>
-fn transfer_tokens_msg(
-    code_hash: String,
-    contract_addr: &HumanAddr,
-    recipient: &HumanAddr,
-    amount: Uint128,
-) -> StdResult<CosmosMsg> {
-    let transfer_msg = TransferMsg::new(recipient.clone(), amount);
-    transfer_msg.into_cosmos_msg(code_hash, contract_addr.clone())
 }
