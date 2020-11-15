@@ -2,9 +2,13 @@
 The source directory (src/) has these files:
 
 contract.rs  lib.rs  msg.rs  state.rs<br/>
+-------------------------------------------
 The lib.rs file defines the modules (files) of the contract as well as the entry points of the contract<br/>
+-------------------------------------------
 The state.rs file defines the State struct, used for storing the contract data, and the Bid struct, used for storing individual bids, keyed by the bidding address.  The state.rs file also defines the functions used to access the contract's storage.<br/>
-The msg.rs file is where the InitMsg parameters are specified (like a constructor).  It also defines all the variants of HandleMsg (functions the contract executes) and their parameters.  In addition, it defines the various QueryMsg and their parameters.  It is also where the structs representing the contract's responses for all of the above are defined.  Because the ContractInfo struct implements functions for sending callback messages and queries to token contracts, that has been included in msg.rs as well<br/>
+-------------------------------------------
+The msg.rs file is where the InitMsg parameters are specified (like a constructor).  It also defines all the variants of HandleMsg (functions the contract executes) and their parameters.  In addition, it defines the various QueryMsg and their parameters.  It is also where the structs representing the contract's responses for all of the above are defined.  Because the ContractInfo struct implements functions for sending callback messages and queries to token contracts, that has been included in msg.rs as well.<br/>
+-------------------------------------------
 The contract.rs file contains contract logic, and implements the contract entry points with the init, handle and query functions.<br/>
 
 # lib.rs
