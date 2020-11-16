@@ -496,7 +496,7 @@ This is an example of how to save Singleton data using the `config` function def
 }
 
 ```
-First are two examples of calling the RegisterReceive functions of the sell and bid contracts using the `register_receive_msg` functions implemented by the ContractInfo struct defined in msg.rs.  Then I've included an example of calling the example HandleMsg defined earlier in the walkthrough.  The `messages` field of InitReponse/HandleResponse is a `Vec<CosmosMsg>`.  Anytime you want to call another contract, you push the appropriate CosmosMsg onto that Vec.
+First are two examples of calling the RegisterReceive functions of the sell and bid contracts using the `register_receive_msg` functions implemented by the ContractInfo struct defined in msg.rs.  Then I've included an example of calling the example HandleMsg defined earlier in the walkthrough, which is also sending 1000000uscrt along with the callback message.  The `messages` field of InitReponse/HandleResponse is a `Vec<CosmosMsg>`.  Anytime you want to call another contract, you push the appropriate CosmosMsg onto that Vec.
 ```rust
 ///////////////////////////////////// Handle //////////////////////////////////////
 /// Returns HandleResult
