@@ -1,4 +1,3 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{HumanAddr, ReadonlyStorage, Storage, Uint128};
@@ -12,7 +11,7 @@ use std::collections::HashSet;
 use crate::msg::ContractInfo;
 
 /// state of the auction
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize)]
 pub struct State {
     /// address of auction contract
     pub auction_addr: HumanAddr,
@@ -58,7 +57,7 @@ pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
 }
 
 /// bid data
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize)]
 pub struct Bid {
     /// amount of bid
     pub amount: Uint128,

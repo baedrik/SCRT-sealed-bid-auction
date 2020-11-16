@@ -10,7 +10,7 @@ use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_ms
 use crate::contract::BLOCK_SIZE;
 
 /// Instantiation message
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InitMsg {
     /// sell contract code hash and address
     pub sell_contract: ContractInfo,
@@ -28,7 +28,7 @@ pub struct InitMsg {
 }
 
 /// Handle messages
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
     /// Receive gets called by the token contracts of the auction.  If it came from the sale token, it
@@ -69,7 +69,7 @@ pub enum HandleMsg {
 }
 
 /// Queries
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     /// Displays the auction information
@@ -77,7 +77,7 @@ pub enum QueryMsg {
 }
 
 /// responses to queries
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     /// AuctionInfo query response
@@ -103,7 +103,7 @@ pub enum QueryAnswer {
 }
 
 /// token's contract address and TokenInfo response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct Token {
     /// contract address of token
     pub contract_address: HumanAddr,
@@ -112,7 +112,7 @@ pub struct Token {
 }
 
 /// success or failure response
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub enum ResponseStatus {
     Success,
     Failure,
@@ -187,7 +187,7 @@ pub enum HandleAnswer {
 }
 
 /// code hash and address of a contract
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 pub struct ContractInfo {
     /// contract's code hash string
     pub code_hash: String,
@@ -208,18 +208,26 @@ impl ContractInfo {
             amount,
             None,
             BLOCK_SIZE,
-            &self.code_hash,
-            &self.address,
+            self.code_hash.clone(),
+            self.address.clone(),
         )
     }
+
     /// Returns a StdResult<CosmosMsg> used to execute RegisterReceive
     ///
     /// # Arguments
     ///
     /// * `code_hash` - string slice holding code hash contract to be called when sent tokens
     pub fn register_receive_msg(&self, code_hash: &str) -> StdResult<CosmosMsg> {
-        register_receive_msg(code_hash, None, BLOCK_SIZE, &self.code_hash, &self.address)
+        register_receive_msg(
+            code_hash,
+            None,
+            BLOCK_SIZE,
+            self.code_hash.clone(),
+            self.address.clone(),
+        )
     }
+
     /// Returns a StdResult<TokenInfo> from performing TokenInfo query
     ///
     /// # Arguments
@@ -229,6 +237,11 @@ impl ContractInfo {
         &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<TokenInfo> {
-        token_info_query(deps, BLOCK_SIZE, &self.code_hash, &self.address)
+        token_info_query(
+            deps,
+            BLOCK_SIZE,
+            self.code_hash.clone(),
+            self.address.clone(),
+        )
     }
 }

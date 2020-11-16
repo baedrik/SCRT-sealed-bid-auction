@@ -41,4 +41,5 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 serde-json-wasm = "0.2.1"
 snafu = { version = "0.6.3" }
 chrono = { version = "0.4.19" }
-secret-toolkit = { git = "https://github.com/baedrik/secret-toolkit", rev = "2042950" }
+# secret-toolkit = { path = "../secret-toolkit/packages/toolkit"}
+secret-toolkit = { git = "https://github.com/baedrik/secret-toolkit", rev = "44dfd60" }
