@@ -380,7 +380,7 @@ pub const MSG_BLOCK_SIZE: usize = 256;
 
 use example_package::msg::HandleMsg as CallbackHandleMsg;
 ```
-I included some example `use`s that you may not already have listed.  Add as needed.  The last one is the important one.  You first add an "example_package" dependency in the Cargo.toml to point to the repo of the contract you want to call.  Change "example_package" to whatever package name is listed in their Cargo.toml.  The `use` statement above will use all the HandleMsg definitions in the contract you want to call and allow you to refer to them as the CallbackHandleMsg enum.  Alternatively you could just copy and paste the HandleMsg enum to match what is defined in the contract you want to call.
+I included some example `use`s that you may not already have listed.  Add as needed.  The last one is the important one.  You first add an "example_package" dependency in the Cargo.toml to point to the repo of the contract you want to call.  Change "example_package" to whatever package name is listed in their Cargo.toml.  The `use` statement above will use all the HandleMsg definitions in the contract you want to call and allow you to refer to them as the CallbackHandleMsg enum.  If their HandleMsg enum is NOT defined in the typical msg.rs file, you will change the `use` statement to include the specific crate it is defined in. Alternatively you could just copy and paste the HandleMsg enum you want to use, and define it in your own contract instead of including the `use` statement.
 ```rust
 ...
     HandleMsgName {
