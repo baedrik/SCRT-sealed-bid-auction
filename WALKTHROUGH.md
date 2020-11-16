@@ -619,7 +619,8 @@ The `try_query_info` function is used for the following examples:
    // get sell token info
     let sell_token_info = state.sell_contract.token_info_query(deps)?;
 ```
-This is an example of using the `token_info_query` function implemented by the ContractInfo struct defined in msg.rs to send a TokenInfo query to the sell token contract.  If you needed to "roll your own" query of another contract, you could 
+This is an example of using the `token_info_query` function implemented by the ContractInfo struct defined in msg.rs to send a TokenInfo query to the sell token contract.  It returns the TokenInfo type defined in the snip20 package of https://github.com/enigmampc/secret-toolkit. If you needed to "roll your own" query of another contract, you could 
+*****TODO*****Going to re-write this using a Trait like I did for the Callback message implementation above
 ```rust
 use core::fmt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
