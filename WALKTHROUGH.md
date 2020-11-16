@@ -7,7 +7,7 @@ The lib.rs file defines the modules (files) of the contract as well as the entry
 <br/>
 The state.rs file defines the State struct, used for storing the contract data, and the Bid struct, used for storing individual bids, keyed by the bidding address.  The state.rs file also defines the functions used to access the contract's storage.<br/>
 <br/>
-The msg.rs file is where the InitMsg parameters are specified (like a constructor).  It also defines all the variants of HandleMsg (functions the contract executes) and their parameters.  In addition, it defines the various QueryMsg and their parameters.  It is also where the structs representing the contract's responses for all of the above are defined.  Because the ContractInfo struct implements functions for sending callback messages and queries to token contracts, that has been included in msg.rs as well.<br/>
+The msg.rs file is where the InitMsg parameters are specified (like a constructor).  It also defines all the variants of HandleMsg (functions the contract executes) and their parameters.  In addition, it defines the variants of QueryMsg and their parameters.  It is also where the structs/enums representing the contract's responses for all of the above are defined.  Because the ContractInfo struct implements functions for sending callback messages and queries to token contracts, that has been included in msg.rs as well.<br/>
 <br/>
 The contract.rs file contains contract logic, and implements the contract entry points with the init, handle and query functions.<br/>
 
@@ -22,7 +22,6 @@ The rest of lib.rs defines the entry points of the contract and can be left as i
 
 # state.rs
 ```rust
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{HumanAddr, ReadonlyStorage, Storage, Uint128};
@@ -36,7 +35,7 @@ use std::collections::HashSet;
 use crate::msg::ContractInfo;
 
 /// state of the auction
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize)]
 pub struct State {
     /// address of auction contract
     pub auction_addr: HumanAddr,
@@ -63,7 +62,7 @@ pub struct State {
 }
 
 ```
-Here you will define the data struct(s) needed to describe the state of your contract.  You will need to update the `use` statements accordingly.  The compiler will give you clearly worded errors if it encounters any undefined types that need to be added in the `use` statements.  If you are using anything defined in another file of the contract, use `use::crate::<filename>`.  In the example above, it is pulling the definition of the ContractInfo struct from the msg module (msg.rs file)
+Here you will define the data struct(s) needed to describe the state of your contract.  You will need to update the `use` statements accordingly.  The compiler will give you clearly worded errors if it encounters any undefined types that need to be added in the `use` statements.  If you are using anything defined in another file of the contract, use `use::crate::<filename>`.  In the example above, it is pulling the definition of the ContractInfo struct from the msg module (msg.rs file).
 ```rust
 /// storage key for auction state
 pub static CONFIG_KEY: &[u8] = b"config";
@@ -87,7 +86,7 @@ pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
 This defines the functions to access Singleton storage.  Singleton storage is used for any data that has one occurence for the entire contract (such as the contract's global state).  Each Singleton is given a KEY and is associated with a specified type (in this case the State struct).  It should be noted that you can have multiple Singletons, each with a different KEY, but each KEY will have exactly one set of data associated with it.
 ```rust
 /// bid data
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize)]
 pub struct Bid {
     /// amount of bid
     pub amount: Uint128,
@@ -119,7 +118,7 @@ This defines the data type for a Bid and the functions to access the storage use
 This file defines the structs/enums that represent the messages sent to and received from the contract.
 ```rust
 /// Instantiation message
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InitMsg {
     /// sell contract code hash and address
     pub sell_contract: ContractInfo,
@@ -139,7 +138,7 @@ pub struct InitMsg {
 Your contract should have an `InitMsg` struct that defines the paramaters that are required by the instantiation message.  `#[serde(default)]` is used to identify that a parameter is optional, and if it is not present, the default value will be assigned to the field.  In this case it means that the instantiation message MAY include the JSON key "description".  If the "description" key is not provided, the description field will default to None (the default of the Option type).  You can also set different default values if needed.  Please see https://serde.rs/attr-default.html for examples.
 ```rust
 /// Handle messages
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
     /// Receive gets called by the token contracts of the auction.  If it came from the sale token, it
@@ -179,7 +178,7 @@ pub enum HandleMsg {
     ReturnAll {},
 }
 ```
-Your contract will define a `HandleMsg` enum to describe all the execute messages (and their required parameters) that your contract implements.  `#[serde(rename_all = "snake_case")]` renames the camel case "RetractBid" to "retract_bid", which is the name that would be used in the "tx compute execute" command.  
+Your contract will define a `HandleMsg` enum to describe all the execute messages (and their required parameters) that your contract implements.  `#[serde(rename_all = "snake_case")]` renames camel case, i.e. "RetractBid" becomes "retract_bid", which is the name that would be used in the "tx compute execute" command.  
 ```rust
    Receive {
         /// address of person or contract that sent the tokens that triggered this Receive
@@ -194,20 +193,20 @@ Your contract will define a `HandleMsg` enum to describe all the execute message
         msg: Option<Binary>,
     },
 ```
-If your contract will be called by either secretSCRT or a SNIP-20 compliant token contract when it is Sent tokens, you will keep the `HandleMsg::Receive` enum as is.
+If your contract will be called by any SNIP-20 compliant token contract including secretSCRT when it is Sent tokens, you will keep the `HandleMsg::Receive` enum as is.
 ```rust
 /// Queries
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     /// Displays the auction information
     AuctionInfo {},
 }
 ```
-Your contract will define a `QueryMsg` enum to define all the query messages (and their required parameters) that your contract accepts.  `#[serde(rename_all = "snake_case")]` renames the camel case "AuctionInfo" to "auction_info", which is the name that would be used in the "query compute query" command.
+Your contract will define a `QueryMsg` enum to define all the query messages (and their required parameters) that your contract accepts.  `#[serde(rename_all = "snake_case")]` renames camel case, i.e. "AuctionInfo" becomes "auction_info", which is the name that would be used in the "query compute query" command.
 ```rust
 /// responses to queries
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     /// AuctionInfo query response
@@ -233,7 +232,7 @@ pub enum QueryAnswer {
 }
 
 /// token's contract address and TokenInfo response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct Token {
     /// contract address of token
     pub contract_address: HumanAddr,
@@ -244,7 +243,7 @@ pub struct Token {
 The `QueryAnswer` enum is used to define the JSON response for each query message.  `#[serde(skip_serializing_if = "Option::is_none")]` will skip the creation of the following JSON key in the response if that field is an Option that is None.
 ```rust
 /// success or failure response
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub enum ResponseStatus {
     Success,
     Failure,
@@ -321,7 +320,7 @@ pub enum HandleAnswer {
 The `HandleAnswer` enum is used to define the JSON response for each execute message.  `#[serde(skip_serializing_if = "Option::is_none")]` will skip the creation of the following JSON key in the response if that field is None.
 ```rust
 /// code hash and address of a contract
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 pub struct ContractInfo {
     /// contract's code hash string
     pub code_hash: String,
@@ -342,17 +341,18 @@ impl ContractInfo {
             amount,
             None,
             BLOCK_SIZE,
-            &self.code_hash,
-            &self.address,
+            self.code_hash.clone(),
+            self.address.clone(),
         )
     }
+
     /// Returns a StdResult<CosmosMsg> used to execute RegisterReceive
     ///
     /// # Arguments
     ///
     /// * `code_hash` - string slice holding code hash contract to be called when sent tokens
     pub fn register_receive_msg(&self, code_hash: &str) -> StdResult<CosmosMsg> {
-        register_receive_msg(code_hash, None, BLOCK_SIZE, &self.code_hash, &self.address)
+        register_receive_msg(code_hash, None, BLOCK_SIZE, self.code_hash.clone(), self.address.clone())
     }
     /// Returns a StdResult<TokenInfo> from performing TokenInfo query
     ///
@@ -363,7 +363,7 @@ impl ContractInfo {
         &self,
         deps: &Extern<S, A, Q>,
     ) -> StdResult<TokenInfo> {
-        token_info_query(deps, BLOCK_SIZE, &self.code_hash, &self.address)
+        token_info_query(deps, BLOCK_SIZE, self.code_hash.clone(), self.address.clone())
     }
 }
 ```
@@ -374,24 +374,36 @@ use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_ms
 Please look at the Cargo.toml file to see how to define the appropriate dependencies.<br/>
 If you need to "roll your own" calls to contracts that do not have toolkit shortcuts, you can do the following:
 ```rust
-use serde::{Serialize};
 use cosmwasm_std::{WasmMsg, CosmosMsg, StdResult, Coin, to_binary};
 use secret_toolkit::utils::{space_pad};
 pub const MSG_BLOCK_SIZE: usize = 256;
 
-#[derive(Serialize)]
-pub enum ExampleHandleMsg {
+use example_package::msg::HandleMsg as CallbackHandleMsg;
+```
+I included some example `use`s that you may not already have listed.  Add as needed.  The last one is the important one.  You first add an "example_package" dependency in the Cargo.toml to point to the repo of the contract you want to call.  Change "example_package" to whatever package name is listed in their Cargo.toml.  The `use` statement above will use all the HandleMsg definitions in the contract you want to call and allow you to refer to them as the CallbackHandleMsg enum.  Alternatively you could just copy and paste the HandleMsg enum to match what is defined in the contract you want to call.
+```rust
+...
     HandleMsgName {
         some: String,
         data: String,
         fields: String,
     },
+...
 }
 ```
-First define an enum that matches the HandleMsg enum of the function you want to call.  I included some example `use`s that you may not already have listed.  Add as needed.
+For this example, let's assume the HandleMsg you want to execute is defined as above.<br/>
 ```rust
-impl ExampleHandleMsg {
-    pub fn to_cosmos_msg(
+trait Callback {
+    fn to_cosmos_msg(
+        &self,
+        callback_code_hash: String,
+        contract_addr: HumanAddr,
+        send_amount: Option<Uint128>,
+    ) -> StdResult<CosmosMsg>;
+}
+
+impl Callback for CallbackHandleMsg {
+    fn to_cosmos_msg(
         &self,
         callback_code_hash: String,
         contract_addr: HumanAddr,
@@ -416,27 +428,9 @@ impl ExampleHandleMsg {
     }
 }
 ```
-Then implement a function to turn the HandleMsg enum into a callback message you can place in the `messages` Vec of your InitResponse/HandleResponse.  The code above pads the message to a block size of MSG_BLOCK_SIZE using the space_pad function in the utils package of https://github.com/enigmampc/secret-toolkit.  The code above also enables you to send SCRT along with the HandleMsg if the contract requires it.  If it does not, you can use:
-```rust
-impl ExampleHandleMsg {
-    pub fn to_cosmos_msg(
-        &self,
-        callback_code_hash: String,
-        contract_addr: HumanAddr,
-    ) -> StdResult<CosmosMsg> {
-        let mut msg = to_binary(self)?;
-        space_pad(&mut msg.0, PADDING_BLOCK_SIZE);
-        let execute = WasmMsg::Execute {
-            msg,
-            contract_addr,
-            callback_code_hash,
-            send: vec![],
-        };
-        Ok(execute.into())
-    }
-}
-```
-It is best practice to pad your messages so that their byte size can not be used to glean information about what message was processed.
+Then you define a trait that you want to add to the enum you are importing from the other contract, and implement that trait as above.  What you are doing is adding a function to the HandleMsg enum that will return the CosmosMsg you need to add to the `messages` Vec of the InitResponse/HandleResponse.  If you only copy-and-pasted the enum definition, you will not define the trait, and you will change `impl Callback for CallbackHandleMsg {` to `impl CallbackHandleMsg {` (if you named your copy-and-pasted enum CallbackHandleMsg).  The `send_amount` parameter is the amount of uSCRT you want to send to the contract with the HandleMsg.  If the function does not require any SCRT being sent, you will want to call `to_cosmos_msg` with None as the send_amount.<br/>
+The code above pads the message to a block size of MSG_BLOCK_SIZE using the space_pad function in the utils package of https://github.com/enigmampc/secret-toolkit.  It is best practice to pad your messages so that their byte size can not be used to glean information about what message was processed.<br/>
+Now that we have functions defined to enable calling other contracts, we will see examples below about how to use them.
 # contract.rs
 ```rust
 ////////////////////////////////////// Init ///////////////////////////////////////
@@ -486,14 +480,14 @@ This is an example of how to save Singleton data using the `config` function def
                 .register_receive_msg(&env.contract_code_hash)?,
 
 
-            ExampleHandleMsg::HandleMsgName {
+            CallbackHandleMsg::HandleMsgName {
                 some: "a".to_string(), 
                 data: "b".to_string(),
                 fields: "c".to_string(),
             }
             .to_cosmos_msg(
-                &code_hash_of_contract_you_want_to_call,
-                &that_contract_adress,
+                code_hash_of_contract_you_want_to_call,
+                that_contracts_address,
                 Some(1000000),
             )?,
         ],
