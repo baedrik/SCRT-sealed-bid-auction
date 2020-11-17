@@ -440,7 +440,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?rev=44dfd60#44dfd608da84efdd771609be3d2a2180ca165fb4"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=47eb01d#47eb01d4b5a407ff1a448d312bb392aac5468bea"
 dependencies = [
  "secret-toolkit-crypto",
  "secret-toolkit-serialization",
@@ -452,7 +452,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-crypto"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?rev=44dfd60#44dfd608da84efdd771609be3d2a2180ca165fb4"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=47eb01d#47eb01d4b5a407ff1a448d312bb392aac5468bea"
 dependencies = [
  "cosmwasm-std",
  "libsecp256k1",
@@ -464,7 +464,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-serialization"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?rev=44dfd60#44dfd608da84efdd771609be3d2a2180ca165fb4"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=47eb01d#47eb01d4b5a407ff1a448d312bb392aac5468bea"
 dependencies = [
  "bincode2",
  "cosmwasm-std",
@@ -474,7 +474,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-snip20"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?rev=44dfd60#44dfd608da84efdd771609be3d2a2180ca165fb4"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=47eb01d#47eb01d4b5a407ff1a448d312bb392aac5468bea"
 dependencies = [
  "cosmwasm-std",
  "schemars",
@@ -485,7 +485,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-storage"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?rev=44dfd60#44dfd608da84efdd771609be3d2a2180ca165fb4"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=47eb01d#47eb01d4b5a407ff1a448d312bb392aac5468bea"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -496,7 +496,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-utils"
 version = "0.1.0"
-source = "git+https://github.com/baedrik/secret-toolkit?rev=44dfd60#44dfd608da84efdd771609be3d2a2180ca165fb4"
+source = "git+https://github.com/baedrik/secret-toolkit?rev=47eb01d#47eb01d4b5a407ff1a448d312bb392aac5468bea"
 dependencies = [
  "cosmwasm-std",
  "schemars",

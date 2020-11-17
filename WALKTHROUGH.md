@@ -496,7 +496,8 @@ This is an example of how to save Singleton data using the `config` function def
 }
 
 ```
-First are two examples of calling the RegisterReceive functions of the sell and bid contracts using the `register_receive_msg` functions implemented by the ContractInfo struct defined in msg.rs.  Then I've included an example of calling the example HandleMsg defined earlier in the walkthrough, which is also sending 1000000uscrt along with the callback message.  The `messages` field of InitReponse/HandleResponse is a `Vec<CosmosMsg>`.  Anytime you want to call another contract, you push the appropriate CosmosMsg onto that Vec.
+Now that the auction contract has done everything it needs to do when instantiated, it is time to call other contracts.  You do this by first creating the InitResponse.  The `messages` field of InitReponse/HandleResponse is a `Vec<CosmosMsg>`.  Anytime you want to call another contract, you push the appropriate CosmosMsg onto that Vec.<br/>
+First are two examples of calling the RegisterReceive functions of the sell and bid contracts using the `register_receive_msg` functions implemented by the ContractInfo struct defined in msg.rs.  Then I've included an example of calling the example HandleMsg defined earlier in the walkthrough, which is also sending 1000000uscrt along with the callback message.  
 ```rust
 ///////////////////////////////////// Handle //////////////////////////////////////
 /// Returns HandleResult
@@ -573,7 +574,8 @@ Gets write access to the Bid Bucket storage as defined in state.rs
 ```rust
     bid_save.save(bidder_raw.as_slice(), &new_bid)?;
 ```
-Shows how to save the new_bid with bidder_raw as the key.
+Shows how to save the new_bid with bidder_raw as the key.<br/>
+Now let's examine an example of returning a HandleResponse after execution which requires calling another contract.  Let's look back at the beginning of the `try_bid` function.
 ```rust
     if state.is_completed {
         let message = String::from("Auction has ended. Bid tokens have been returned");
@@ -595,7 +597,7 @@ Because the number of log key-value pairs are publicly visible, you might want t
             data: None,
         });
 ```
-This uses the `transfer_msg` function implemented by the ContractInfo struct defined in msg.rs to create a CosmosMsg used to call the Transfer function of the bid token contract, and places it in the `messages` Vec to be executed next.  It then passes the response JSON created above as the "value" String of a LogAttribute using the `log` function.  "response" can be replaced with any String you choose as the JSON "key" of the LogAttribute.  Any time your contract is called by another contract, if you want to pass a response to the user, you must use the `log` field of the InitResponse/HandleResponse, because the `data` field is not passed back to the user.  In this case, `try_bid` is only ever called by the bid token contract.
+Now that the auction contract is done processing the bid (which was rejected in this case because the auction had already closed), it is ready to create the HandleResponse.  In doing so, it also sets up the call to the Transfer method of the bid token contract to return the tokens that were sent to escrow after the auction closed.  It uses the `transfer_msg` function implemented by the ContractInfo struct defined in msg.rs to create the appropriate CosmosMsg and places it in the `messages` Vec to be executed next.  It then passes the response JSON created above as the "value" String of a LogAttribute using the `log` function.  "response" can be replaced with any String you choose as the JSON "key" of the LogAttribute.  Any time your contract is called by another contract, if you want to pass a response to the user, you must use the `log` field of the InitResponse/HandleResponse, because the `data` field is not passed back to the user.  In this case, `try_bid` is only ever called by the bid token contract.
 ```rust
 /////////////////////////////////////// Query /////////////////////////////////////
 /// Returns QueryResult
@@ -611,15 +613,16 @@ pub fn query<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, msg: QueryM
     pad_query_result(response, BLOCK_SIZE)
 }
 ```
-Your contract will have a `query` function.  It will be called whenever a "query compute query" command is performed.  You will change the `match msg` statement to handle each QueryMsg enum you defined in msg.rs.  This is how you direct each QueryMsg to the appropriate function.  This uses the `pad_query_result` function in the utils package of https://github.com/enigmampc/secret-toolkit.  This function will pad all LogAttribute key and value Strings, as well as the data field of the InitResponse portion of a InitResult (an InitResult is a `StdResult<InitResponse>`) to multiples of BLOCK_SIZE.<br/>
+Your contract will have a `query` function.  It will be called whenever a "query compute query" command is performed.  You will change the `match msg` statement to handle each QueryMsg enum you defined in msg.rs.  This is how you direct each QueryMsg to the appropriate function.  This uses the `pad_query_result` function in the utils package of https://github.com/enigmampc/secret-toolkit.  This function will pad the QueryResponse portion of a QueryResult (a QueryResult is a `StdResult<QueryResponse>`) to multiples of BLOCK_SIZE.<br/>
 <br/>
 
 The `try_query_info` function is used for the following examples:
 ```rust
    // get sell token info
-    let sell_token_info = state.sell_contract.token_info_query(deps)?;
+    let sell_token_info = state.sell_contract.token_info_query(&deps.querier)?;
 ```
-This is an example of using the `token_info_query` function implemented by the ContractInfo struct defined in msg.rs to send a TokenInfo query to the sell token contract.  It returns the TokenInfo type defined in the snip20 package of https://github.com/enigmampc/secret-toolkit. If you needed to "roll your own" query of another contract, you could 
+This is an example of using the `token_info_query` function implemented by the ContractInfo struct defined in msg.rs to send a TokenInfo query to the sell token contract.  It returns the TokenInfo type defined in the snip20 package of https://github.com/enigmampc/secret-toolkit.<br/>
+If you needed to "roll your own" query of another contract, you could 
 *****TODO*****Going to re-write this using a Trait like I did for the Callback message implementation above
 ```rust
 use core::fmt;

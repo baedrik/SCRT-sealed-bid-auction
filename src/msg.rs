@@ -1,9 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{
-    Api, Binary, CosmosMsg, Extern, HumanAddr, Querier, StdResult, Storage, Uint128,
-};
+use cosmwasm_std::{Binary, CosmosMsg, HumanAddr, Querier, StdResult, Uint128};
 
 use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_msg, TokenInfo};
 
@@ -232,13 +230,10 @@ impl ContractInfo {
     ///
     /// # Arguments
     ///
-    /// * `deps` - reference to Extern that holds all the external contract dependencies
-    pub fn token_info_query<S: Storage, A: Api, Q: Querier>(
-        &self,
-        deps: &Extern<S, A, Q>,
-    ) -> StdResult<TokenInfo> {
+    /// * `querier` - a reference to the Querier dependency of the querying contract
+    pub fn token_info_query<Q: Querier>(&self, querier: &Q) -> StdResult<TokenInfo> {
         token_info_query(
-            deps,
+            querier,
             BLOCK_SIZE,
             self.code_hash.clone(),
             self.address.clone(),

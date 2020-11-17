@@ -712,9 +712,9 @@ fn try_query_info<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Que
     let state = config_read(&deps.storage).load()?;
 
     // get sell token info
-    let sell_token_info = state.sell_contract.token_info_query(deps)?;
+    let sell_token_info = state.sell_contract.token_info_query(&deps.querier)?;
     // get bid token info
-    let bid_token_info = state.bid_contract.token_info_query(deps)?;
+    let bid_token_info = state.bid_contract.token_info_query(&deps.querier)?;
 
     // build status string
     let status = if state.is_completed {
