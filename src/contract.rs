@@ -68,10 +68,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         messages: vec![
             state
                 .sell_contract
-                .register_receive_msg(&env.contract_code_hash)?,
+                .register_receive_msg(env.contract_code_hash.clone())?,
             state
                 .bid_contract
-                .register_receive_msg(&env.contract_code_hash)?,
+                .register_receive_msg(env.contract_code_hash)?,
         ],
         log: vec![],
     })
@@ -91,10 +91,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> HandleResult {
     let response = match msg {
-        HandleMsg::RetractBid { .. } => try_retract(deps, &env.message.sender),
+        HandleMsg::RetractBid { .. } => try_retract(deps, env.message.sender),
         HandleMsg::Finalize { only_if_bids, .. } => try_finalize(deps, env, only_if_bids, false),
         HandleMsg::ReturnAll { .. } => try_finalize(deps, env, false, true),
-        HandleMsg::Receive { from, amount, .. } => try_receive(deps, env, &from, amount),
+        HandleMsg::Receive { from, amount, .. } => try_receive(deps, env, from, amount),
         HandleMsg::ViewBid { .. } => try_view_bid(deps, &env.message.sender),
     };
     pad_handle_result(response, BLOCK_SIZE)
@@ -159,12 +159,12 @@ fn try_view_bid<S: Storage, A: Api, Q: Querier>(
 ///
 /// * `deps` - mutable reference to Extern containing all the contract's external dependencies
 /// * `env` - Env of contract's environment
-/// * `from` - reference to address of owner of tokens sent to escrow
+/// * `from` - address of owner of tokens sent to escrow
 /// * `amount` - Uint128 amount sent to escrow
 fn try_receive<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    from: &HumanAddr,
+    from: HumanAddr,
     amount: Uint128,
 ) -> HandleResult {
     let mut state = config_read(&deps.storage).load()?;
@@ -198,16 +198,16 @@ fn try_receive<S: Storage, A: Api, Q: Querier>(
 /// # Arguments
 ///
 /// * `deps` - mutable reference to Extern containing all the contract's external dependencies
-/// * `owner` - reference to address of owner of tokens sent to escrow
+/// * `owner` - address of owner of tokens sent to escrow
 /// * `amount` - Uint128 amount sent to escrow
 fn try_consign<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    owner: &HumanAddr,
+    owner: HumanAddr,
     amount: Uint128,
     state: &mut State,
 ) -> HandleResult {
     // if not the auction owner, send the tokens back
-    if *owner != state.seller {
+    if owner != state.seller {
         let message = String::from(
             "Only auction creator can consign tokens for sale.  Your tokens have been returned",
         );
@@ -322,13 +322,13 @@ fn try_consign<S: Storage, A: Api, Q: Querier>(
 ///
 /// * `deps` - mutable reference to Extern containing all the contract's external dependencies
 /// * `env` - Env of contract's environment
-/// * `bidder` - reference to address of owner of tokens sent to escrow
+/// * `bidder` - address of owner of tokens sent to escrow
 /// * `amount` - Uint128 amount sent to escrow
 /// * `state` - mutable reference to auction state
 fn try_bid<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    bidder: &HumanAddr,
+    bidder: HumanAddr,
     amount: Uint128,
     state: &mut State,
 ) -> HandleResult {
@@ -391,7 +391,7 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
         });
     }
     let mut return_amount: Option<Uint128> = None;
-    let bidder_raw = &deps.api.canonical_address(bidder)?;
+    let bidder_raw = &deps.api.canonical_address(&bidder)?;
     let bidstore = bids_read(&deps.storage);
 
     // if there is an active bid from this address
@@ -468,14 +468,14 @@ fn try_bid<S: Storage, A: Api, Q: Querier>(
 /// # Arguments
 ///
 /// * `deps` - mutable reference to Extern containing all the contract's external dependencies
-/// * `bidder` - reference to address of bidder
+/// * `bidder` - address of bidder
 fn try_retract<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    bidder: &HumanAddr,
+    bidder: HumanAddr,
 ) -> HandleResult {
     let mut state = config_read(&deps.storage).load()?;
 
-    let bidder_raw = &deps.api.canonical_address(bidder)?;
+    let bidder_raw = &deps.api.canonical_address(&bidder)?;
     let mut bids = bids(&mut deps.storage);
     let mut cos_msg = Vec::new();
     let sent: Option<Uint128>;
@@ -609,10 +609,10 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
                 cos_msg.push(
                     state
                         .bid_contract
-                        .transfer_msg(&state.seller, winning_bid.bid.amount)?,
+                        .transfer_msg(state.seller.clone(), winning_bid.bid.amount)?,
                 );
                 cos_msg.push(state.sell_contract.transfer_msg(
-                    &deps.api.human_address(&winning_bid.bidder)?,
+                    deps.api.human_address(&winning_bid.bidder)?,
                     state.sell_amount,
                 )?);
                 state.currently_consigned = Uint128(0);
@@ -627,7 +627,7 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
         // loops through all remaining bids to return them to the bidders
         for losing_bid in &bid_list {
             cos_msg.push(state.bid_contract.transfer_msg(
-                &deps.api.human_address(&losing_bid.bidder)?,
+                deps.api.human_address(&losing_bid.bidder)?,
                 losing_bid.bid.amount,
             )?);
             bids.remove(&losing_bid.bidder.as_slice());
@@ -641,7 +641,7 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
         cos_msg.push(
             state
                 .sell_contract
-                .transfer_msg(&state.seller, state.currently_consigned)?,
+                .transfer_msg(state.seller.clone(), state.currently_consigned)?,
         );
         if !return_all {
             amount_returned = Some(state.currently_consigned);

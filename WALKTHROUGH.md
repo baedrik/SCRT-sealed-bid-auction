@@ -333,9 +333,9 @@ impl ContractInfo {
     ///
     /// # Arguments
     ///
-    /// * `recipient` - reference to address tokens are to be sent to
+    /// * `recipient` - address tokens are to be sent to
     /// * `amount` - Uint128 amount of tokens to send
-    pub fn transfer_msg(&self, recipient: &HumanAddr, amount: Uint128) -> StdResult<CosmosMsg> {
+    pub fn transfer_msg(&self, recipient: HumanAddr, amount: Uint128) -> StdResult<CosmosMsg> {
         transfer_msg(
             recipient,
             amount,
@@ -350,20 +350,29 @@ impl ContractInfo {
     ///
     /// # Arguments
     ///
-    /// * `code_hash` - string slice holding code hash contract to be called when sent tokens
-    pub fn register_receive_msg(&self, code_hash: &str) -> StdResult<CosmosMsg> {
-        register_receive_msg(code_hash, None, BLOCK_SIZE, self.code_hash.clone(), self.address.clone())
+    /// * `code_hash` - String holding code hash contract to be called when sent tokens
+    pub fn register_receive_msg(&self, code_hash: String) -> StdResult<CosmosMsg> {
+        register_receive_msg(
+            code_hash,
+            None,
+            BLOCK_SIZE,
+            self.code_hash.clone(),
+            self.address.clone(),
+        )
     }
+
     /// Returns a StdResult<TokenInfo> from performing TokenInfo query
     ///
     /// # Arguments
     ///
-    /// * `deps` - reference to Extern that holds all the external contract dependencies
-    pub fn token_info_query<S: Storage, A: Api, Q: Querier>(
-        &self,
-        deps: &Extern<S, A, Q>,
-    ) -> StdResult<TokenInfo> {
-        token_info_query(deps, BLOCK_SIZE, self.code_hash.clone(), self.address.clone())
+    /// * `querier` - a reference to the Querier dependency of the querying contract
+    pub fn token_info_query<Q: Querier>(&self, querier: &Q) -> StdResult<TokenInfo> {
+        token_info_query(
+            querier,
+            BLOCK_SIZE,
+            self.code_hash.clone(),
+            self.address.clone(),
+        )
     }
 }
 ```
@@ -474,10 +483,10 @@ This is an example of how to save Singleton data using the `config` function def
         messages: vec![
             state
                 .sell_contract
-                .register_receive_msg(&env.contract_code_hash)?,
+                .register_receive_msg(env.contract_code_hash.clone())?,
             state
                 .bid_contract
-                .register_receive_msg(&env.contract_code_hash)?,
+                .register_receive_msg(env.contract_code_hash)?,
 
 
             CallbackHandleMsg::HandleMsgName {
@@ -513,10 +522,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> HandleResult {
     let response = match msg {
-        HandleMsg::RetractBid { .. } => try_retract(deps, &env.message.sender),
+        HandleMsg::RetractBid { .. } => try_retract(deps, env.message.sender),
         HandleMsg::Finalize { only_if_bids, .. } => try_finalize(deps, env, only_if_bids, false),
         HandleMsg::ReturnAll { .. } => try_finalize(deps, env, false, true),
-        HandleMsg::Receive { from, amount, .. } => try_receive(deps, env, &from, amount),
+        HandleMsg::Receive { from, amount, .. } => try_receive(deps, env, from, amount),
         HandleMsg::ViewBid { .. } => try_view_bid(deps, &env.message.sender),
     };
 }
@@ -534,7 +543,7 @@ The `try_view_bid` function is used for the following examples:
 ```
 demonstrates how to load the State data from Singleton storage as defined in state.rs
 ```rust
-    let bidder_raw = &deps.api.canonical_address(bidder)?;
+    let bidder_raw = &deps.api.canonical_address(&bidder)?;
     let bidstore = bids_read(&deps.storage);
 ```
 The first line demonstrates how to convert a HumanAddr into a CanonicalAddr, which is what the auction contract uses as the key to store bids.  It should be noted that `deps.api.canonical_address` only supports addresses with a "secret" prefix.  If you need to work with "secretvaloper" addresses, you should use `bech32` to encode/decode the addresses.<br/>
@@ -626,27 +635,31 @@ If you needed to "roll your own" query of another contract, you could
 *****TODO*****Going to re-write this using a Trait like I did for the Callback message implementation above
 ```rust
 use core::fmt;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use cosmwasm_std::{Extern, Storage, Api, Querier, QueryRequest, WasmQuery};
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
+use cosmwasm_std::{Querier, QueryRequest, WasmQuery};
 use secret_toolkit::utils::space_pad;
 pub const QUERY_BLOCK_SIZE: usize = 256;
 
+use example_package::msg::QueryMsg as ExampleQueryMsg;
+```
+I included some example `use`s that you may not already have listed.  Add as needed.  The last one is the important one.  You first add an "example_package" dependency in the Cargo.toml to point to the repo of the contract you want to call.  Change "example_package" to whatever package name is listed in their Cargo.toml.  The `use` statement above will use all the QueryMsg definitions in the contract you want to call and allow you to refer to them as the ExampleQueryMsg enum.  If their QueryMsg enum is NOT defined in the typical msg.rs file, you will change the `use` statement to include the specific crate it is defined in. Alternatively you could just copy and paste the QueryMsg enum you want to use, and define it in your own contract instead of including the `use` statement.
+```rust
 /// QueryAnswer for  QueryOne
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QueryOneAnswer {
     pub yummy: String,
     pub output: String,
     pub data: String,
 }
 /// QueryAnswer for QueryTwo
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QueryTwoAnswer {
     pub even: String,
     pub tastier: String,
     pub output: String,
 }
 ```
-First define structs matching the format of the QueryAnswer enums you will be receiving.  I included some `use`s that you may or may not already have.  Add as needed. 
+Now, define structs matching the format of the QueryAnswer enums you will be receiving.
 ```rust
 /// wrapper to deserialize QueryOne response
 #[derive(Deserialize)]
@@ -659,11 +672,9 @@ pub struct QueryTwoAnswerWrapper {
     pub query_two: QueryTwoAnswer,
 }
 ```
-Then define some structs to wrap those first structs.  The name of the field MUST match the name of the QueryAnswer enum you are receiving (it is often just the name of the QueryMsg that was called)
+Then define some structs to wrap those first structs.  The name of the field MUST match the snake_case name the other contract gave to the QueryAnswer enum variant(s) you are receiving (it is often just the name of the QueryMsg that was called)
 ```rust
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ExampleQueryMsg {
+...
     QueryOne {
         some: String,
         input: String,
@@ -673,15 +684,20 @@ pub enum ExampleQueryMsg {
         more: String,
         input: String,
     },
+...
 }
 ```
-Then define an enum matching the QueryMsg formats of the queries you will be calling.
+For this example, let's assume the QueryMsg you want to execute is defined as above.
 ```rust
 impl fmt::Display for ExampleQueryMsg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ExampleQueryMsg::QueryOne { .. } => write!(f, "QueryOne"),
             ExampleQueryMsg::QueryTwo { .. } => write!(f, "QueryTwo"),
+            // if you are `use`ing the other contract's QueryMsg definitions, you
+            // need to add the following line so the `match` statement exhausts 
+            // all possible variants of the ExampleQueryMsg enum
+            _ => write!(f, "Unspecified QueryMsg"),
         }
     }
 }

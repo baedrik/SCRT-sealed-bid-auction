@@ -198,9 +198,9 @@ impl ContractInfo {
     ///
     /// # Arguments
     ///
-    /// * `recipient` - reference to address tokens are to be sent to
+    /// * `recipient` - address tokens are to be sent to
     /// * `amount` - Uint128 amount of tokens to send
-    pub fn transfer_msg(&self, recipient: &HumanAddr, amount: Uint128) -> StdResult<CosmosMsg> {
+    pub fn transfer_msg(&self, recipient: HumanAddr, amount: Uint128) -> StdResult<CosmosMsg> {
         transfer_msg(
             recipient,
             amount,
@@ -215,8 +215,8 @@ impl ContractInfo {
     ///
     /// # Arguments
     ///
-    /// * `code_hash` - string slice holding code hash contract to be called when sent tokens
-    pub fn register_receive_msg(&self, code_hash: &str) -> StdResult<CosmosMsg> {
+    /// * `code_hash` - String holding code hash contract to be called when sent tokens
+    pub fn register_receive_msg(&self, code_hash: String) -> StdResult<CosmosMsg> {
         register_receive_msg(
             code_hash,
             None,
