@@ -1,12 +1,10 @@
-use serde::{Deserialize, Serialize};
+use std::{any::type_name, collections::HashSet};
 
-use cosmwasm_std::{HumanAddr, ReadonlyStorage, Storage, Uint128};
-use cosmwasm_storage::{
-    bucket, bucket_read, singleton, singleton_read, Bucket, ReadonlyBucket, ReadonlySingleton,
-    Singleton,
-};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use std::collections::HashSet;
+use cosmwasm_std::{HumanAddr, ReadonlyStorage, StdError, StdResult, Storage};
+
+use secret_toolkit::serialization::{Bincode2, Serde};
 
 use crate::msg::ContractInfo;
 
@@ -22,11 +20,11 @@ pub struct State {
     /// code hash and address of bid token contract
     pub bid_contract: ContractInfo,
     /// amount of tokens for sale
-    pub sell_amount: Uint128,
+    pub sell_amount: u128,
     /// minimum bid that will be accepted
-    pub minimum_bid: Uint128,
+    pub minimum_bid: u128,
     /// amount of tokens currently consigned to auction escrow
-    pub currently_consigned: Uint128,
+    pub currently_consigned: u128,
     /// list of addresses of bidders
     pub bidders: HashSet<Vec<u8>>,
     /// true if the auction is closed
@@ -37,48 +35,65 @@ pub struct State {
     pub description: Option<String>,
 }
 
-/// storage key for auction state
-pub static CONFIG_KEY: &[u8] = b"config";
-/// Returns writable Singleton Storage associated with auction state
-///
-/// # Arguments
-///
-/// * `storage` - mutable reference to the contract's storage
-pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
-    singleton(storage, CONFIG_KEY)
-}
-/// Returns read-only Singleton Storage associated with auction state
-///
-/// # Arguments
-///
-/// * `storage` - reference to the contract's storage
-pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
-    singleton_read(storage, CONFIG_KEY)
-}
-
 /// bid data
 #[derive(Serialize, Deserialize)]
 pub struct Bid {
     /// amount of bid
-    pub amount: Uint128,
+    pub amount: u128,
     /// time bid was placed
     pub timestamp: u64,
 }
-/// storage key for bids
-pub const PREFIX_BIDS: &[u8] = b"bids";
-/// Returns Bucket Storage associated with Bid type
+
+/// Returns StdResult<()> resulting from saving an item to storage
 ///
 /// # Arguments
 ///
-/// * `storage` - mutable reference to the contract's storage
-pub fn bids<S: Storage>(storage: &mut S) -> Bucket<S, Bid> {
-    bucket(PREFIX_BIDS, storage)
+/// * `storage` - a mutable reference to the storage this item should go to
+/// * `key` - a byte slice representing the key to access the stored item
+/// * `value` - a reference to the item to store
+pub fn save<T: Serialize, S: Storage>(storage: &mut S, key: &[u8], value: &T) -> StdResult<()> {
+    storage.set(key, &Bincode2::serialize(value)?);
+    Ok(())
 }
-/// Returns read-only Bucket Storage associated with Bid type
+
+/// Removes an item from storage
 ///
 /// # Arguments
 ///
-/// * `storage` - reference to the contract's storage
-pub fn bids_read<S: ReadonlyStorage>(storage: &S) -> ReadonlyBucket<S, Bid> {
-    bucket_read(PREFIX_BIDS, storage)
+/// * `storage` - a mutable reference to the storage this item is in
+/// * `key` - a byte slice representing the key that accesses the stored item
+pub fn remove<S: Storage>(storage: &mut S, key: &[u8]) {
+    storage.remove(key);
+}
+
+/// Returns StdResult<T> from retrieving the item with the specified key.  Returns a
+/// StdError::NotFound if there is no item with that key
+///
+/// # Arguments
+///
+/// * `storage` - a reference to the storage this item is in
+/// * `key` - a byte slice representing the key that accesses the stored item
+pub fn load<T: DeserializeOwned, S: ReadonlyStorage>(storage: &S, key: &[u8]) -> StdResult<T> {
+    Bincode2::deserialize(
+        &storage
+            .get(key)
+            .ok_or_else(|| StdError::not_found(type_name::<T>()))?,
+    )
+}
+
+/// Returns StdResult<Option<T>> from retrieving the item with the specified key.
+/// Returns Ok(None) if there is no item with that key
+///
+/// # Arguments
+///
+/// * `storage` - a reference to the storage this item is in
+/// * `key` - a byte slice representing the key that accesses the stored item
+pub fn may_load<T: DeserializeOwned, S: ReadonlyStorage>(
+    storage: &S,
+    key: &[u8],
+) -> StdResult<Option<T>> {
+    match storage.get(key) {
+        Some(value) => Bincode2::deserialize(&value).map(Some),
+        None => Ok(None),
+    }
 }

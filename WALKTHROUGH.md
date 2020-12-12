@@ -22,15 +22,13 @@ The rest of lib.rs defines the entry points of the contract and can be left as i
 
 # state.rs
 ```rust
-use serde::{Deserialize, Serialize};
+use std::{any::type_name, collections::HashSet};
 
-use cosmwasm_std::{HumanAddr, ReadonlyStorage, Storage, Uint128};
-use cosmwasm_storage::{
-    bucket, bucket_read, singleton, singleton_read, Bucket, ReadonlyBucket, ReadonlySingleton,
-    Singleton,
-};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use std::collections::HashSet;
+use cosmwasm_std::{HumanAddr, ReadonlyStorage, StdError, StdResult, Storage};
+
+use secret_toolkit::serialization::{Bincode2, Serde};
 
 use crate::msg::ContractInfo;
 
@@ -46,11 +44,11 @@ pub struct State {
     /// code hash and address of bid token contract
     pub bid_contract: ContractInfo,
     /// amount of tokens for sale
-    pub sell_amount: Uint128,
+    pub sell_amount: u128,
     /// minimum bid that will be accepted
-    pub minimum_bid: Uint128,
+    pub minimum_bid: u128,
     /// amount of tokens currently consigned to auction escrow
-    pub currently_consigned: Uint128,
+    pub currently_consigned: u128,
     /// list of addresses of bidders
     pub bidders: HashSet<Vec<u8>>,
     /// true if the auction is closed
@@ -62,57 +60,78 @@ pub struct State {
 }
 
 ```
-Here you will define the data struct(s) needed to describe the state of your contract.  You will need to update the `use` statements accordingly.  The compiler will give you clearly worded errors if it encounters any undefined types that need to be added in the `use` statements.  If you are using anything defined in another file of the contract, use `use::crate::<filename>`.  In the example above, it is pulling the definition of the ContractInfo struct from the msg module (msg.rs file).
-```rust
-/// storage key for auction state
-pub static CONFIG_KEY: &[u8] = b"config";
-/// Returns writable Singleton Storage associated with auction state
-///
-/// # Arguments
-///
-/// * `storage` - mutable reference to the contract's storage
-pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
-    singleton(storage, CONFIG_KEY)
-}
-/// Returns read-only Singleton Storage associated with auction state
-///
-/// # Arguments
-///
-/// * `storage` - reference to the contract's storage
-pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
-    singleton_read(storage, CONFIG_KEY)
-}
-```
-This defines the functions to access Singleton storage.  Singleton storage is used for any data that has one occurence for the entire contract (such as the contract's global state).  Each Singleton is given a KEY and is associated with a specified type (in this case the State struct).  It should be noted that you can have multiple Singletons, each with a different KEY, but each KEY will have exactly one set of data associated with it.
+Here you will define the data struct(s) needed to describe the state of your contract.  You will need to update the `use` statements accordingly.  The compiler will give you clearly worded errors if it encounters any undefined types that need to be added in the `use` statements.  If you are using anything defined in another file of the contract, use `use::crate::<filename>`.  In the example above, it is pulling the definition of the ContractInfo struct from the msg module (msg.rs file).  Please see the Cargo.toml file for examples on how to define the appropriate dependencies that these `use` statements rely upon.<br/>
+If you need 128-bit unsigned integers, you should use u128 for any data structs that will be stored, and Uint128 for any data structs that will be used as JSON input/output.  This is because serde_json_wasm can not serialize u128, so Uint128 was created as a helper to serialize a u128 as a String.  Because Uint128 serializes as a String, if you commit it to storage, it will have a variable length, depending on the number of digits.  This can be a data leak because storing more bytes incurs a greater gas fee.  You will likely need to convert between the two types as you go back and forth from storage and the contract's input/output.  You can convert a Uint128 to a u128 by using the `u128()` method of Uint128, and you can create a Uint128 from a u128 with `Uint128(some_u128_variable)`.<br/>
+It is also best practice to avoid using the cosmwasm storage types Singleton, Typed, and Bucket because these types use serde_json_wasm to serialize the data before it is stored.  Serializing numbers and Options with serde_json_wasm will create variable length serialization, depending on their values, which can be a data leak as described above.  Instead you should use bincode2 for storage serialization.  It not only serializes numbers and Options with a constant length, but it is also more efficient.
 ```rust
 /// bid data
 #[derive(Serialize, Deserialize)]
 pub struct Bid {
     /// amount of bid
-    pub amount: Uint128,
+    pub amount: u128,
     /// time bid was placed
     pub timestamp: u64,
 }
-/// storage key for bids
-pub const PREFIX_BIDS: &[u8] = b"bids";
-/// Returns Bucket Storage associated with Bid type
+
+/// Returns StdResult<()> resulting from saving an item to storage
 ///
 /// # Arguments
 ///
-/// * `storage` - mutable reference to the contract's storage
-pub fn bids<S: Storage>(storage: &mut S) -> Bucket<S, Bid> {
-    bucket(PREFIX_BIDS, storage)
+/// * `storage` - a mutable reference to the storage this item should go to
+/// * `key` - a byte slice representing the key to access the stored item
+/// * `value` - a reference to the item to store
+pub fn save<T: Serialize, S: Storage>(storage: &mut S, key: &[u8], value: &T) -> StdResult<()> {
+    storage.set(key, &Bincode2::serialize(value)?);
+    Ok(())
 }
-/// Returns read-only Bucket Storage associated with Bid type
+
+/// Removes an item from storage
 ///
 /// # Arguments
 ///
-/// * `storage` - reference to the contract's storage
-pub fn bids_read<S: ReadonlyStorage>(storage: &S) -> ReadonlyBucket<S, Bid> {
-    bucket_read(PREFIX_BIDS, storage)
+/// * `storage` - a mutable reference to the storage this item is in
+/// * `key` - a byte slice representing the key that accesses the stored item
+pub fn remove<S: Storage>(storage: &mut S, key: &[u8]) {
+    storage.remove(key);
+}
+
+/// Returns StdResult<T> from retrieving the item with the specified key.  Returns a
+/// StdError::NotFound if there is no item with that key
+///
+/// # Arguments
+///
+/// * `storage` - a reference to the storage this item is in
+/// * `key` - a byte slice representing the key that accesses the stored item
+pub fn load<T: DeserializeOwned, S: ReadonlyStorage>(storage: &S, key: &[u8]) -> StdResult<T> {
+    Bincode2::deserialize(
+        &storage
+            .get(key)
+            .ok_or_else(|| StdError::not_found(type_name::<T>()))?,
+    )
+}
+
+/// Returns StdResult<Option<T>> from retrieving the item with the specified key.
+/// Returns Ok(None) if there is no item with that key
+///
+/// # Arguments
+///
+/// * `storage` - a reference to the storage this item is in
+/// * `key` - a byte slice representing the key that accesses the stored item
+pub fn may_load<T: DeserializeOwned, S: ReadonlyStorage>(
+    storage: &S,
+    key: &[u8],
+) -> StdResult<Option<T>> {
+    match storage.get(key) {
+        Some(value) => Bincode2::deserialize(&value).map(Some),
+        None => Ok(None),
+    }
 }
 ```
-This defines the data type for a Bid and the functions to access the storage used for bids.  Because there are multiple bids in an auction, Singleton storage is not appropriate, so in this case we use Bucket storage.  Bucket storage creates a subspace of storage that will be used with one specific data type.  In this case, the subspace with "bids" PREFIX is associated with the Bid type.  You can have multiple Buckets, where each one will associate a different data type to a separate storage subspace with a unique PREFIX.  Each instance of the data type will be stored using its own key.  In this contract, each bid will be stored/accessed by the address of the bidder as can be seen in the contract.rs file.
+This defines the data type for a Bid as well as the functions used to access storage.  The difference between `load` and `may_load` is `load` will throw a StdError::NotFound if there is no item stored with the specified key, while `may_load` will return an Ok result of None.  These functions use Bincode2 from the serialization package of https://github.com/enigmampc/secret-toolkit to serialize the data, so they are more secure than the standard cosmwasm storage types Singleton, Typed, and Bucket.  Bincode2 in the toolkit is a helpful wrapper for bincode2 that maps errors so that they also specify the type that was attempting to be (de)serialized.  If you plan to use Bincode2 from the toolkit, 
+```rust
+use secret_toolkit::serialization::{Bincode2, Serde};
+```
+you will need to include both Serde and Bincode2 in your `use` statement.  These functions can be copied as-is for use with any types.
 
 # msg.rs
 This file defines the structs/enums that represent the messages sent to and received from the contract.
@@ -193,7 +212,7 @@ Your contract will define a `HandleMsg` enum to describe all the execute message
         msg: Option<Binary>,
     },
 ```
-If your contract will be called by any SNIP-20 compliant token contract including secretSCRT when it is Sent tokens, you will keep the `HandleMsg::Receive` enum as is.
+If your contract will be called by any SNIP-20 compliant token contract, including secretSCRT, when it is Sent tokens, you will keep the `HandleMsg::Receive` enum as is.
 ```rust
 /// Queries
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -380,7 +399,6 @@ This defines a ContractInfo struct to hold the code hash and address of a SNIP20
 ```rust
 use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_msg, TokenInfo};
 ```
-Please look at the Cargo.toml file to see how to define the appropriate dependencies.<br/>
 If you need to "roll your own" calls to contracts that do not have toolkit shortcuts, you can do the following:
 ```rust
 use cosmwasm_std::{WasmMsg, CosmosMsg, StdResult, Coin, to_binary};
@@ -466,18 +484,18 @@ Your contract will have an `init` function that will be called whenever it is in
         seller: env.message.sender,
         sell_contract: msg.sell_contract,
         bid_contract: msg.bid_contract,
-        sell_amount: msg.sell_amount,
-        minimum_bid: msg.minimum_bid,
-        currently_consigned: Uint128(0),
+        sell_amount: msg.sell_amount.u128(),
+        minimum_bid: msg.minimum_bid.u128(),
+        currently_consigned: 0,
         bidders: HashSet::new(),
         is_completed: false,
         tokens_consigned: false,
         description: msg.description,
     };
 
-    config(&mut deps.storage).save(&state)?;
+    save(&mut deps.storage, CONFIG_KEY, &state)?;
 ```
-This is an example of how to save Singleton data using the `config` function defined in state.rs.  First it creates the a new variable of State type.  `env.message.sender` is the address that signed the instantiate message (specified with the "--from" flag).  Then it saves the new `state` variable.
+This is an example of how to save to storage using the function defined in state.rs.  First it creates a new variable of State type.  `env.contract.address` is the address this new contract has been assigned, and `env.message.sender` is the address that signed the instantiate message (specified with the "--from" flag).  Then it saves the new `state` variable.  It uses a key defined earlier in the file as `pub const CONFIG_KEY: &[u8] = b"config";`.
 ```rust
     Ok(InitResponse {
         messages: vec![
@@ -539,19 +557,17 @@ This uses the `pad_handle_result` function in the utils package of https://githu
 
 The `try_view_bid` function is used for the following examples:
 ```rust
-    let state = config_read(&deps.storage).load()?;
+    let state: State = load(&deps.storage, CONFIG_KEY)?;
 ```
-demonstrates how to load the State data from Singleton storage as defined in state.rs
+This demonstrates how to load the State data from storage using the function defined in state.rs.
 ```rust
     let bidder_raw = &deps.api.canonical_address(&bidder)?;
-    let bidstore = bids_read(&deps.storage);
 ```
-The first line demonstrates how to convert a HumanAddr into a CanonicalAddr, which is what the auction contract uses as the key to store bids.  It should be noted that `deps.api.canonical_address` only supports addresses with a "secret" prefix.  If you need to work with "secretvaloper" addresses, you should use `bech32` to encode/decode the addresses.<br/>
-The second line sets access to the Bid Bucket storage as defined in state.rs
+This demonstrates how to convert a HumanAddr into a CanonicalAddr, which is what the auction contract uses as the key to store bids.  It should be noted that `deps.api.canonical_address` only supports addresses with a "secret" prefix.  If you need to work with "secretvaloper" addresses, you should use `bech32` to encode/decode the addresses.
 ```rust
-        let bid = bidstore.may_load(bidder_raw.as_slice())?;
+        let bid: Option<Bid> = may_load(&deps.storage, bidder_raw.as_slice())?;
 ```
-This line attempts to read the data stored with the `bidder_raw` key in the `bidstore` storage defined above.  When you use the `may_load` function of storage, it will return an Option wrapping whatever type you specified when defining the Bucket functions in state.rs (in this case, Bid).  If no data is found with that key, the Option will be None.
+This line attempts to read the Bid stored with the `bidder_raw` key.  Because it uses the `may_load` function, the result is an `Option`, which may be None if no Bid is found with that key.
 ```rust
     Ok(HandleResponse {
         messages: vec![],
@@ -571,19 +587,15 @@ This is an example of returning the appropriate HandleResponse after execution. 
 The `try_bid` function is used for the following examples:
 ```rust
     let new_bid = Bid {
-        amount,
+        amount: amount.u128(),
         timestamp: env.block.time,
     };
 ```
 The creation of new_bid shows an example of getting the current timestamp from `env.block.time`.  The timestamp is the Unix Epoch time in seconds.
 ```rust
-    let mut bid_save = bids(&mut deps.storage);
+    save(&mut deps.storage, bidder_raw.as_slice(), &new_bid)?;
 ```
-Gets write access to the Bid Bucket storage as defined in state.rs
-```rust
-    bid_save.save(bidder_raw.as_slice(), &new_bid)?;
-```
-Shows how to save the new_bid with bidder_raw as the key.<br/>
+This saves the new bid under the bidder_raw key.  As you can see, the storage functions defined in state.rs can be used with different types.<br/>
 Now let's examine an example of returning a HandleResponse after execution which requires calling another contract.  Let's look back at the beginning of the `try_bid` function.
 ```rust
     if state.is_completed {
@@ -631,7 +643,7 @@ The `try_query_info` function is used for the following examples:
     let sell_token_info = state.sell_contract.token_info_query(&deps.querier)?;
 ```
 This is an example of using the `token_info_query` function implemented by the ContractInfo struct defined in msg.rs to send a TokenInfo query to the sell token contract.  It returns the TokenInfo type defined in the snip20 package of https://github.com/enigmampc/secret-toolkit.<br/>
-If you needed to "roll your own" query of another contract, you could 
+If you need to "roll your own" query of another contract, you could 
 *****TODO*****Going to re-write this using a Trait like I did for the Callback message implementation above
 ```rust
 use core::fmt;
@@ -749,8 +761,8 @@ access the query_one field of the wrapper.
             contract_address: state.bid_contract.address,
             token_info: bid_token_info,
         },
-        sell_amount: state.sell_amount,
-        minimum_bid: state.minimum_bid,
+        sell_amount: Uint128(state.sell_amount),
+        minimum_bid: Uint128(state.minimum_bid),
         description: state.description,
         auction_address: state.auction_addr,
         status,
