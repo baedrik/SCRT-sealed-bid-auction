@@ -1,6 +1,8 @@
 # Sealed Bid Auction
 
-Be sure to read the WALKTHROUGH.md if you are using this contract as a template to build your own secret contract...
+Be sure to read the [WALKTHROUGH.md](https://github.com/baedrik/SCRT-sealed-bid-auction/blob/master/WALKTHROUGH.md) if you are using this contract as a template to build your own secret contract...
+
+And read [CALLING_OTHER_CONTRACTS.md](https://github.com/baedrik/SCRT-sealed-bid-auction/blob/master/CALLING_OTHER_CONTRACTS.md) for an explanation and usage examples of how to allow your contract to call other contracts.
 
 This is a contract that implements a sealed bid auction where the bid and sold tokens are SNIP-20 compliant.  Technically they don't have to be fully compliant.  They just need to follow SNIP-20 specs for the Send function (as well as the RegisterReceive function, which is needed to set up the Send/Receive functionality).  SNIP-20 spec requires that Send should callback a Receive function with the following msg format:
 ```sh

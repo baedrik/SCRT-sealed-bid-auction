@@ -127,7 +127,7 @@ pub fn may_load<T: DeserializeOwned, S: ReadonlyStorage>(
     }
 }
 ```
-This defines the data type for a Bid as well as the functions used to access storage.  The difference between `load` and `may_load` is `load` will throw a StdError::NotFound if there is no item stored with the specified key, while `may_load` will return an Ok result of None.  These functions use Bincode2 from the serialization package of https://github.com/enigmampc/secret-toolkit to serialize the data, so they are more secure than the standard cosmwasm storage types Singleton, Typed, and Bucket.  Bincode2 in the toolkit is a helpful wrapper for bincode2 that maps errors so that they also specify the type that was attempting to be (de)serialized.  If you plan to use Bincode2 from the toolkit, 
+This defines the data type for a Bid as well as the functions used to access storage.  The difference between `load` and `may_load` is `load` will throw a StdError::NotFound if there is no item stored with the specified key, while `may_load` will return an Ok result of None.  These functions use Bincode2 from the [serialization package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/serialization) of https://github.com/enigmampc/secret-toolkit to serialize the data, so they are more secure than the standard cosmwasm storage types Singleton, Typed, and Bucket.  Bincode2 in the toolkit is a helpful wrapper for bincode2 that maps errors so that they also specify the type that was attempting to be (de)serialized.  If you plan to use Bincode2 from the toolkit, 
 ```rust
 use secret_toolkit::serialization::{Bincode2, Serde};
 ```
@@ -395,69 +395,11 @@ impl ContractInfo {
     }
 }
 ```
-This defines a ContractInfo struct to hold the code hash and address of a SNIP20 token contract.  It implements functions to enable you to call the Transfer and RegisterReceive functions of those contracts.  If you want to call another contract's handle functions, you generate the appropriate CosmosMsg and place it into the `messages` Vec of your InitResponse/HandleResponse.  These functions use the snip20 package in https://github.com/enigmampc/secret-toolkit by specifying
+This defines a ContractInfo struct to hold the code hash and address of a SNIP20 token contract.  It implements functions to enable you to call the Transfer and RegisterReceive functions of those contracts.  If you want to call another contract's handle functions, you generate the appropriate CosmosMsg and place it into the `messages` Vec of your InitResponse/HandleResponse.  These functions use the [snip20 package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/snip20) in https://github.com/enigmampc/secret-toolkit by specifying
 ```rust
 use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_msg, TokenInfo};
 ```
-If you need to "roll your own" calls to contracts that do not have toolkit shortcuts, you can do the following:
-```rust
-use cosmwasm_std::{WasmMsg, CosmosMsg, StdResult, Coin, to_binary};
-use secret_toolkit::utils::{space_pad};
-pub const MSG_BLOCK_SIZE: usize = 256;
-
-use example_package::msg::HandleMsg as CallbackHandleMsg;
-```
-I included some example `use`s that you may not already have listed.  Add as needed.  The last one is the important one.  You first add an "example_package" dependency in the Cargo.toml to point to the repo of the contract you want to call.  Change "example_package" to whatever package name is listed in their Cargo.toml.  The `use` statement above will use all the HandleMsg definitions in the contract you want to call and allow you to refer to them as the CallbackHandleMsg enum.  If their HandleMsg enum is NOT defined in the typical msg.rs file, you will change the `use` statement to include the specific crate it is defined in. Alternatively you could just copy and paste the HandleMsg enum you want to use, and define it in your own contract instead of including the `use` statement.
-```rust
-...
-    HandleMsgName {
-        some: String,
-        data: String,
-        fields: String,
-    },
-...
-}
-```
-For this example, let's assume the HandleMsg you want to execute is defined as above.<br/>
-```rust
-trait Callback {
-    fn to_cosmos_msg(
-        &self,
-        callback_code_hash: String,
-        contract_addr: HumanAddr,
-        send_amount: Option<Uint128>,
-    ) -> StdResult<CosmosMsg>;
-}
-
-impl Callback for CallbackHandleMsg {
-    fn to_cosmos_msg(
-        &self,
-        callback_code_hash: String,
-        contract_addr: HumanAddr,
-        send_amount: Option<Uint128>,
-    ) -> StdResult<CosmosMsg> {
-        let mut msg = to_binary(self)?;
-        space_pad(&mut msg.0, MSG_BLOCK_SIZE);
-        let mut send = Vec::new();
-        if let Some(amount) = send_amount {
-            send.push(Coin {
-                amount,
-                denom: String::from("uscrt"),
-            });
-        }
-        let execute = WasmMsg::Execute {
-            msg,
-            contract_addr,
-            callback_code_hash,
-            send,
-        };
-        Ok(execute.into())
-    }
-}
-```
-Then you define a trait that you want to add to the enum you are importing from the other contract, and implement that trait as above.  What you are doing is adding a function to the HandleMsg enum that will return the CosmosMsg you need to add to the `messages` Vec of the InitResponse/HandleResponse.  If you only copy-and-pasted the enum definition, you will not define the trait, and you will change `impl Callback for CallbackHandleMsg {` to `impl CallbackHandleMsg {` (if you named your copy-and-pasted enum CallbackHandleMsg).  The `send_amount` parameter is the amount of uSCRT you want to send to the contract with the HandleMsg.  If the function does not require any SCRT being sent, you will want to call `to_cosmos_msg` with None as the send_amount.<br/>
-The code above pads the message to a block size of MSG_BLOCK_SIZE using the space_pad function in the utils package of https://github.com/enigmampc/secret-toolkit.  It is best practice to pad your messages so that their byte size can not be used to glean information about what message was processed.<br/>
-Now that we have functions defined to enable calling other contracts, we will see examples below about how to use them.
+If you need to call a contract that doesn't have its own toolkit helpers, you can use the `InitCallback`, `HandleCallback`, and `Query` traits defined in the [utils package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils) of the toolkit.  Please see [CALLING_OTHER_CONTRACTS.md](https://github.com/baedrik/SCRT-sealed-bid-auction/blob/master/CALLING_OTHER_CONTRACTS.md) for an explanation and usage examples.
 # contract.rs
 ```rust
 ////////////////////////////////////// Init ///////////////////////////////////////
@@ -552,7 +494,7 @@ Your contract will have a `handle` function.  It will be called whenever a "tx c
 ```rust
      pad_handle_result(response, BLOCK_SIZE)
 ```
-This uses the `pad_handle_result` function in the utils package of https://github.com/enigmampc/secret-toolkit.  This function will pad all LogAttribute key and value Strings, as well as the data field of the HandleResponse portion of a HandleResult (a HandleResult is a `StdResult<HandleResponse>`) to multiples of BLOCK_SIZE.<br/>
+This uses the `pad_handle_result` function in the [utils package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils) of https://github.com/enigmampc/secret-toolkit.  This function will pad all LogAttribute key and value Strings, as well as the data field of the HandleResponse portion of a HandleResult (a HandleResult is a `StdResult<HandleResponse>`) to multiples of BLOCK_SIZE.<br/>
 <br/>
 
 The `try_view_bid` function is used for the following examples:
@@ -634,7 +576,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, msg: QueryM
     pad_query_result(response, BLOCK_SIZE)
 }
 ```
-Your contract will have a `query` function.  It will be called whenever a "query compute query" command is performed.  You will change the `match msg` statement to handle each QueryMsg enum you defined in msg.rs.  This is how you direct each QueryMsg to the appropriate function.  This uses the `pad_query_result` function in the utils package of https://github.com/enigmampc/secret-toolkit.  This function will pad the QueryResponse portion of a QueryResult (a QueryResult is a `StdResult<QueryResponse>`) to multiples of BLOCK_SIZE.<br/>
+Your contract will have a `query` function.  It will be called whenever a "query compute query" command is performed.  You will change the `match msg` statement to handle each QueryMsg enum you defined in msg.rs.  This is how you direct each QueryMsg to the appropriate function.  This uses the `pad_query_result` function in the [utils package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils) of https://github.com/enigmampc/secret-toolkit.  This function will pad the QueryResponse portion of a QueryResult (a QueryResult is a `StdResult<QueryResponse>`) to multiples of BLOCK_SIZE.<br/>
 <br/>
 
 The `try_query_info` function is used for the following examples:
@@ -642,115 +584,8 @@ The `try_query_info` function is used for the following examples:
    // get sell token info
     let sell_token_info = state.sell_contract.token_info_query(&deps.querier)?;
 ```
-This is an example of using the `token_info_query` function implemented by the ContractInfo struct defined in msg.rs to send a TokenInfo query to the sell token contract.  It returns the TokenInfo type defined in the snip20 package of https://github.com/enigmampc/secret-toolkit.<br/>
-If you need to "roll your own" query of another contract, you could 
-*****TODO*****Going to re-write this using a Trait like I did for the Callback message implementation above
-```rust
-use core::fmt;
-use serde::{de::DeserializeOwned, Serialize, Deserialize};
-use cosmwasm_std::{Querier, QueryRequest, WasmQuery};
-use secret_toolkit::utils::space_pad;
-pub const QUERY_BLOCK_SIZE: usize = 256;
-
-use example_package::msg::QueryMsg as ExampleQueryMsg;
-```
-I included some example `use`s that you may not already have listed.  Add as needed.  The last one is the important one.  You first add an "example_package" dependency in the Cargo.toml to point to the repo of the contract you want to call.  Change "example_package" to whatever package name is listed in their Cargo.toml.  The `use` statement above will use all the QueryMsg definitions in the contract you want to call and allow you to refer to them as the ExampleQueryMsg enum.  If their QueryMsg enum is NOT defined in the typical msg.rs file, you will change the `use` statement to include the specific crate it is defined in. Alternatively you could just copy and paste the QueryMsg enum you want to use, and define it in your own contract instead of including the `use` statement.
-```rust
-/// QueryAnswer for  QueryOne
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct QueryOneAnswer {
-    pub yummy: String,
-    pub output: String,
-    pub data: String,
-}
-/// QueryAnswer for QueryTwo
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct QueryTwoAnswer {
-    pub even: String,
-    pub tastier: String,
-    pub output: String,
-}
-```
-Now, define structs matching the format of the QueryAnswer enums you will be receiving.
-```rust
-/// wrapper to deserialize QueryOne response
-#[derive(Deserialize)]
-pub struct QueryOneAnswerWrapper {
-    pub query_one: QueryOneAnswer,
-}
-/// wrapper to deserialize QueryTwo response
-#[derive(Deserialize)]
-pub struct QueryTwoAnswerWrapper {
-    pub query_two: QueryTwoAnswer,
-}
-```
-Then define some structs to wrap those first structs.  The name of the field MUST match the snake_case name the other contract gave to the QueryAnswer enum variant(s) you are receiving (it is often just the name of the QueryMsg that was called)
-```rust
-...
-    QueryOne {
-        some: String,
-        input: String,
-        fields: String,
-    },
-    QueryTwo {
-        more: String,
-        input: String,
-    },
-...
-}
-```
-For this example, let's assume the QueryMsg you want to execute is defined as above.
-```rust
-impl fmt::Display for ExampleQueryMsg {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ExampleQueryMsg::QueryOne { .. } => write!(f, "QueryOne"),
-            ExampleQueryMsg::QueryTwo { .. } => write!(f, "QueryTwo"),
-            // if you are `use`ing the other contract's QueryMsg definitions, you
-            // need to add the following line so the `match` statement exhausts 
-            // all possible variants of the ExampleQueryMsg enum
-            _ => write!(f, "Unspecified QueryMsg"),
-        }
-    }
-}
-```
-You can implement a way to easily print out the name of the QueryMsg being called if you want to customize an error description like below.
-```rust
-impl ExampleQueryMsg {
-    pub fn query<S: Storage, A: Api, Q: Querier, T: DeserializeOwned>(
-        &self,
-        deps: &Extern<S, A, Q>,
-        callback_code_hash: String,
-        contract_addr: HumanAddr,
-    ) -> StdResult<T> {
-        let mut msg = to_binary(self)?;
-        space_pad(&mut msg.0, QUERY_BLOCK_SIZE);
-        deps.querier
-            .query(&QueryRequest::Wasm(WasmQuery::Smart {
-                contract_addr,
-                callback_code_hash,
-                msg,
-            }))
-            .map_err(|err| {
-                StdError::generic_err(format!("Error performing {} query: {}", self, err))
-            })
-    }
-}
-```
-And finally implement a query function that will be used to send the query.
-```rust
-   let query_one_resp: QueryOneAnswerWrapper = ExampleQueryMsg::QueryOne {
-        some: "a".to_string(),
-        input: "b".to_string(),
-        fields: "c".to_string(),
-    }
-    .query(deps, &contract_code_hash, &contract_address)?;
-```
-This is how you call the query.  As you can see, you are creating an instance of the QueryOne variant of the ExampleQueryMsg enum.  And you are calling the `query` function of that instance, and storing the response in the query_one_resp variable that has QueryAnswerWrapper type.  Don't forget that is the wrapper.  If you want to access the actual QueryAnswer data, you need to 
-```rust
-    let query_one_answer: QueryOneAnswer = query_one_resp.query_one;
-```
-access the query_one field of the wrapper.
+This is an example of using the `token_info_query` function implemented by the ContractInfo struct defined in msg.rs to send a TokenInfo query to the sell token contract.  It returns the TokenInfo type defined in the [snip20 package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/snip20) of https://github.com/enigmampc/secret-toolkit.<br/>
+If you need to query a contract that does not have its own toolkit helpers,  you can use the `Query` trait defined in the [utils package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils) of the toolkit.  Please see [CALLING_OTHER_CONTRACTS.md](https://github.com/baedrik/SCRT-sealed-bid-auction/blob/master/CALLING_OTHER_CONTRACTS.md) for an explanation and usage examples.
 ```rust
     to_binary(&QueryAnswer::AuctionInfo {
         sell_token: Token {
