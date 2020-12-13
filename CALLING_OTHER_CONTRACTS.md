@@ -3,7 +3,7 @@ This document describes how to use the `InitCallback`, `HandleCallback`, and `Qu
 
 If you are specifically wanting to call Handle functions or Queries of SNIP-20 token contracts, there is a [SNIP-20 package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/snip20) in the toolkit that has unique functions for each handle/query to simplify things even further.
 
-To implement any of these traits, you will need to add a `use` statement for the traits you want.
+To implement any of the following traits, you will need to add a `use` statement for the traits you want.
 ```rust
 use secret_toolkit::utils::{InitCallback, HandleCallback, Query};
 ```
