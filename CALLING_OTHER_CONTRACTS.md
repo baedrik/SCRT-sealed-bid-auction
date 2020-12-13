@@ -1,6 +1,7 @@
 # Calling other contracts
 This document describes how to use the `InitCallback`, `HandleCallback`, and `Query` traits defined in the [utils package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils) of https://github.com/enigmampc/secret-toolkit to call other contracts from your own.
 
+If you are specifically wanting to call Handle functions or queries of SNIP-20 token contracts, there is a [SNIP-20 package](https://github.com/enigmampc/secret-toolkit/tree/master/packages/snip20) in the toolkit that has unique functions for each handle/query to simplify things even further.
 
 Do not forget to add the `use` statement for the traits you want.
 ```rust
