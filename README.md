@@ -42,7 +42,7 @@ You can install jq with
 ```sh
 sudo apt-get install jq
 ```
-The script is expecting the auction contract to have code ID 102, but you can change that on the first line if you store a new version of the contract.  
+The script is expecting the auction contract to have code ID 17 (which is the code ID on mainnet), but you can change that on the first line if you store a new version of the contract, or if you want to use it on holodeck.
 
 This script was primarily written as a quick-and-dirty helper for my own testing purposes. If you intend to create a production UI for the contract, when placing a bid, you should follow the example of the script and use the optional padding field when calling a token contract's Send.  You will want the number of digits of the send amount + the number of characters in the padding field to be a constant number (I use 40 characters, because the maximum number of digits of Uint128 is 39, and I always want at least one blank in padding).  This way you do not leak information about the number of digits of the bid.  You do not have to do this for consign, because the consignment amount is public (it is the amount of tokens for sale in the auction), but it will not cause any problems if you also pad the consignment call to Send if the same function is used to Send the tokens for both placing bids, and consigning tokens.
 
