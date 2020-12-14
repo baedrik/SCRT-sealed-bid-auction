@@ -97,6 +97,9 @@ pub enum QueryAnswer {
         /// consigned" or "Closed" (will also state if there are outstanding funds after auction
         /// closure
         status: String,
+        /// If the auction resulted in a swap, this will state the winning bid
+        #[serde(skip_serializing_if = "Option::is_none")]
+        winning_bid: Option<Uint128>,
     },
 }
 

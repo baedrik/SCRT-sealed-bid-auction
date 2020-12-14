@@ -57,6 +57,8 @@ pub struct State {
     pub tokens_consigned: bool,
     /// Optional text description of auction
     pub description: Option<String>,
+    /// winning bid
+    pub winning_bid: u128,
 }
 
 ```
@@ -247,6 +249,9 @@ pub enum QueryAnswer {
         /// consigned" or "Closed" (will also state if there are outstanding funds after auction
         /// closure
         status: String,
+        /// If the auction resulted in a swap, this will state the winning bid
+        #[serde(skip_serializing_if = "Option::is_none")]
+        winning_bid: Option<Uint128>,
     },
 }
 
@@ -433,6 +438,7 @@ Your contract will have an `init` function that will be called whenever it is in
         is_completed: false,
         tokens_consigned: false,
         description: msg.description,
+        winning_bid: 0,
     };
 
     save(&mut deps.storage, CONFIG_KEY, &state)?;
@@ -447,18 +453,6 @@ This is an example of how to save to storage using the function defined in state
             state
                 .bid_contract
                 .register_receive_msg(env.contract_code_hash)?,
-
-
-            CallbackHandleMsg::HandleMsgName {
-                some: "a".to_string(), 
-                data: "b".to_string(),
-                fields: "c".to_string(),
-            }
-            .to_cosmos_msg(
-                code_hash_of_contract_you_want_to_call,
-                that_contracts_address,
-                Some(1000000),
-            )?,
         ],
         log: vec![],
     })
@@ -466,7 +460,7 @@ This is an example of how to save to storage using the function defined in state
 
 ```
 Now that the auction contract has done everything it needs to do when instantiated, it is time to call other contracts.  You do this by first creating the InitResponse.  The `messages` field of InitReponse/HandleResponse is a `Vec<CosmosMsg>`.  Anytime you want to call another contract, you push the appropriate CosmosMsg onto that Vec.<br/>
-First are two examples of calling the RegisterReceive functions of the sell and bid contracts using the `register_receive_msg` functions implemented by the ContractInfo struct defined in msg.rs.  Then I've included an example of calling the example HandleMsg defined earlier in the walkthrough, which is also sending 1000000uscrt along with the callback message.  
+Here are two examples of calling the RegisterReceive functions of the sell and bid contracts using the `register_receive_msg` functions implemented by the ContractInfo struct defined in msg.rs.
 ```rust
 ///////////////////////////////////// Handle //////////////////////////////////////
 /// Returns HandleResult
@@ -601,6 +595,7 @@ If you need to query a contract that does not have its own toolkit helpers,  you
         description: state.description,
         auction_address: state.auction_addr,
         status,
+        winning_bid,
     })
 ```
 Because QueryResponse is just a Binary, and QueryResult is a `StdResult<QueryResponse>`, all you need to do to create the QueryResult is create an instance of your QueryAnswer enum and pass it to `to_binary` which will serialize it to a JSON string and then convert that to a Binary and return a StdResult wrapping that Binary.

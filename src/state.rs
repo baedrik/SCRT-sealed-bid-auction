@@ -33,6 +33,8 @@ pub struct State {
     pub tokens_consigned: bool,
     /// Optional text description of auction
     pub description: Option<String>,
+    /// winning bid
+    pub winning_bid: u128,
 }
 
 /// bid data

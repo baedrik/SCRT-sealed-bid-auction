@@ -61,6 +61,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         is_completed: false,
         tokens_consigned: false,
         description: msg.description,
+        winning_bid: 0,
     };
 
     save(&mut deps.storage, CONFIG_KEY, &state)?;
@@ -622,6 +623,7 @@ fn try_finalize<S: Storage, A: Api, Q: Querier>(
                 state.currently_consigned = 0;
                 update_state = true;
                 winning_amount = Some(Uint128(winning_bid.bid.amount));
+                state.winning_bid = winning_bid.bid.amount;
                 remove(&mut deps.storage, &winning_bid.bidder.as_slice());
                 state
                     .bidders
@@ -738,6 +740,12 @@ fn try_query_info<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Que
         )
     };
 
+    let winning_bid = if state.winning_bid == 0 {
+        None
+    } else {
+        Some(Uint128(state.winning_bid))
+    };
+
     to_binary(&QueryAnswer::AuctionInfo {
         sell_token: Token {
             contract_address: state.sell_contract.address,
@@ -752,5 +760,6 @@ fn try_query_info<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Que
         description: state.description,
         auction_address: state.auction_addr,
         status,
+        winning_bid,
     })
 }
