@@ -1,4 +1,4 @@
-#!/usr/local/bin/bash
+#!/usr/bin/env bash
 
 # Change this to the code ID of the auction contract for whatever chain your secretcli is using
 contractcode="17"
