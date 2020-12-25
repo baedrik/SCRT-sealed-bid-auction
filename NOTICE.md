@@ -1,7 +1,7 @@
 Copyright 2020 Bill Wincer
 
 Licensed under the GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007;
-you may not use these files except in compliance with the [License](https://github.com/baedrik/SCRT-sealed-bid-auction/blob/master/LICENSE).
+you may not use these files except in compliance with the [License](https://github.com/baedrik/SCRT-sealed-bid-auction/blob/master/LICENSE.md).
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
