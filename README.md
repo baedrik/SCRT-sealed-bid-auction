@@ -4,6 +4,12 @@ Be sure to read the [WALKTHROUGH.md](https://github.com/baedrik/SCRT-sealed-bid-
 
 And read [CALLING_OTHER_CONTRACTS.md](https://github.com/baedrik/SCRT-sealed-bid-auction/blob/master/CALLING_OTHER_CONTRACTS.md) for an explanation and usage examples of how to allow your contract to call other contracts.
 
+## Notice
+There is an [update](https://github.com/baedrik/secret-auction-factory) to this sealed-bid auction contract.  The new implementation incorporates the use of a factory contract to allow someone to view only the active auctions or only the closed auctions.  They may also view only the auctions that they have created, the auctions in which they have active bids, and the auctions they have won if they have created a viewing key with the factory contract.  If they have created a viewing key, the factory will automatically set the viewing key with every active auction they have bids with in order for the bidder to view their bid information directly from the auction.
+
+Although this original auction contract will no longer be updated, the repo will remain available so that people may use it as an example for writing secret contracts.
+
+## And now back to the show...
 This is a contract that implements a sealed bid auction where the bid and sold tokens are SNIP-20 compliant.  Technically they don't have to be fully compliant.  They just need to follow SNIP-20 specs for the Send function (as well as the RegisterReceive function, which is needed to set up the Send/Receive functionality).  SNIP-20 spec requires that Send should callback a Receive function with the following msg format:
 ```sh
 pub struct Snip20ReceiveMsg {
